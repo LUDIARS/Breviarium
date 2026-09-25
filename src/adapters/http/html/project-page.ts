@@ -1,0 +1,51 @@
+// @implements SPEC-br-web-ui
+import type { ProjectOverview } from '../../../snapshots/application/project-overview.ts';
+import { STAGE_STATE_LABELS } from '../../../workflow/domain/stages.ts';
+import { esc } from './escape.ts';
+import { shortSha, timeTag } from './format.ts';
+import { inspectionTable, toolChips } from './inspection-views.ts';
+import { banners, page, type PageNotice } from './layout.ts';
+import { projectFields } from './project-form.ts';
+import { sourceTable } from './source-views.ts';
+import { stageTimeline } from './stage-views.ts';
+
+function header(o: ProjectOverview): string {
+  const current = o.currentStage ? `${o.currentStage.id} ${o.currentStage.title} (${STAGE_STATE_LABELS[o.currentStage.state]})` : '到達した段なし';
+  const head = o.head
+    ? `HEAD <code>${esc(shortSha(o.head.headSha))}</code> (${timeTag(o.head.headCommittedAt)}${o.head.branch ? `、${esc(o.head.branch)}` : '、detached'}、tag ${o.head.tagCount})`
+    : 'HEAD 未取得';
+  return `<section class="card"><div class="project-head"><h1>${esc(o.project.name)}</h1><code>${esc(o.project.code)}</code><span class="badge">${esc(o.project.classification)}</span></div>
+<p>現在の段階: <strong>${esc(current)}</strong></p><p class="small">${head}</p>${toolChips(o.tools)}
+<div class="actions"><a class="button-link secondary" href="${esc(`/projects/${encodeURIComponent(o.project.code)}/summary.md`)}">要約 (Markdown)</a><a class="button-link secondary" href="${esc(`/projects/${encodeURIComponent(o.project.code)}/summary.json`)}">要約 (JSON)</a></div></section>`;
+}
+
+function refreshSection(o: ProjectOverview): string {
+  const action = `/projects/${encodeURIComponent(o.project.code)}/refresh`;
+  return `<section class="card"><h2>スナップショットの鮮度</h2>
+<p class="small muted">画面はスナップショットだけを表示します。ソースへ問い合わせるのは「更新」だけです。失敗したソースは前回の値を残し、理由を並べます。</p>
+<form class="inline" method="post" action="${esc(action)}"><button type="submit">全ソースを更新</button></form>
+${sourceTable(o.project.code, o.sources)}</section>`;
+}
+
+function editSection(o: ProjectOverview): string {
+  const code = encodeURIComponent(o.project.code);
+  return `<details class="card"><summary>登録を編集</summary>
+<form method="post" action="${esc(`/projects/${code}`)}">${projectFields('edit', o.project)}<div class="actions"><button type="submit">保存</button></div></form></details>
+<details class="card"><summary>登録を削除</summary>
+<form method="post" action="${esc(`/projects/${code}/delete`)}"><p class="small">登録とスナップショットを削除します (対象リポや各ツールのデータは消えません)。</p>
+<label for="confirm-delete">確認のため code を入力<input id="confirm-delete" name="confirm" autocomplete="off" required></label>
+<div class="actions"><button type="submit" class="danger">削除</button></div></form></details>`;
+}
+
+/** `GET /projects/:code`: stage timeline, inspections with evidence, snapshot freshness, refresh and edit. */
+export function renderProjectPage(o: ProjectOverview, notice: PageNotice): string {
+  const body = `${banners(notice)}${header(o)}
+<section class="card"><h2>ワークフロー段階</h2>${stageTimeline(o.stages)}</section>
+<section class="card"><h2>検査とクラス</h2><p class="small muted">— は未計測 (0 点や推測で埋めない)。クラス基準は spec/feature/grading.md。</p>${inspectionTable(o.inspections)}</section>
+${refreshSection(o)}${editSection(o)}`;
+  return page(`${o.project.name} (${o.project.code}) — Breviarium`, body);
+}
+
+export function renderNotFoundPage(code: string): string {
+  return page('見つかりません — Breviarium', `<h1>見つかりません</h1><p>${esc(code)} は登録されていません。</p><p><a href="/">一覧へ戻る</a></p>`);
+}

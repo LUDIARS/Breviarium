@@ -1,20 +1,50 @@
 # Excubitor catalog fragment -- Breviarium (サービス所有 catalog)。
+#
+# Breviarium の起動定義の正本。ポート番号はここにだけ書き、コードには持たない
+# (port-source-rule)。起動・停止は Excubitor 経由、本体 checkout (${ARS_ROOT}/Breviarium)
+# からのみ行い、worktree からは起動しない。
+#
+# ソースの URL は書かない。各サービス所有 catalog の `provides` (PRAEFORMA_URL /
+# CONCORDIA_URL / ELEGANTIA_URL) を Excubitor が topology env として注入し、loadConfig が
+# それを読む (BREVIARIUM_<SOURCE>_URL を明示した場合だけそちらを優先する)。
+# provides を持たないソースは「未接続」のまま動く (推測で URL を組み立てない)。
+#
+# 公開トンネル / Viewer / *_PUBLIC_URL は設定しない。待受は loopback のみ。
 services:
   - code: breviarium
-    name: Breviarium (Breviarium (Br): executive summary of LUDIARS project state)
+    name: Breviarium (プロジェクト状態のエグゼクティブサマリー)
     tier: personal
-    project_code: breviarium
+    project_code: Br
     component: backend
     port: 4370
+    # Web 入口 (loopback のみ。公開 URL は持たない)。
+    frontend_url: http://127.0.0.1:4370/
     repo: LUDIARS/Breviarium
     runtime: node
     cwd: ${ARS_ROOT}/Breviarium
-    command: npm run dev
+    command: node src/main.ts
     autostart: false
     restart_policy: "no"
     health:
       type: http
-      url: http://localhost:4370/health
+      url: http://127.0.0.1:4370/health
       interval_sec: 30
+      grace_period_sec: 10
+    log_path: ${ARS_ROOT}/logs/breviarium
+    env:
+      NODE_ENV: production
+      BREVIARIUM_HOST: 127.0.0.1
+      BREVIARIUM_PORT: "4370"
+      # 登録台帳とスナップショット。data/ は .gitignore 済み。消せば初期化される。
+      BREVIARIUM_DATA_DIR: ${ARS_ROOT}/Breviarium/data
+      BREVIARIUM_SOURCE_TIMEOUT_MS: "5000"
+      # Voluptas のローカルデータ。プロジェクト登録の bindings.voluptasPath はこの配下の相対パス。
+      BREVIARIUM_VOLPUTAS_DATA_DIR: ${ARS_ROOT}/VolputasData
+      # 定期更新は既定で無効 (0)。有効にするときだけ 60 以上の秒数を入れる。
+      BR_REFRESH_INTERVAL_SEC: "0"
+    required_env:
+      - BREVIARIUM_HOST
+      - BREVIARIUM_PORT
+      - BREVIARIUM_DATA_DIR
     provides:
       BREVIARIUM_URL: http://${host}:${port}

@@ -1,0 +1,17 @@
+{
+  "name": "project-registry",
+  "description": "プロジェクト登録 (business): Br が見る対象プロジェクトの台帳。Cc 略称 code・表示名・repoPath・分類 (public/internal)・ソースとの binding (Pf プロジェクト id / Elegantia product / Voluptas 相対パス / GitHub リポ) の登録規則と登録・更新・削除の use case を所有する。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    { "pathPattern": "(^|/)src/registry/(?:.*/)?[^/]+$" },
+    { "pathPattern": "(^|/)tests/registry/(?:.*/)?[^/]+$" },
+    { "pathPattern": "^spec/feature/project-registry\\.md$" },
+    { "pathPattern": "^spec/domains/project-registry\\.domain\\.json$" }
+  ],
+  "cardTemplate": "Summarise the \"project-registry\" domain: registration rules for Br projects (Cc code, name, absolute repoPath, public/internal classification, source bindings) and the register/update/remove use cases.",
+  "specRefs": [
+    "spec/ux/product.md",
+    "spec/feature/project-registry.md"
+  ]
+}

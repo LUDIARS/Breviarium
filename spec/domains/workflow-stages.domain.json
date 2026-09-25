@@ -1,0 +1,17 @@
+{
+  "name": "workflow-stages",
+  "description": "ワークフロー段判定 (business): LUDIARS ワークフローの固定 8 段 + 定期レビューの定義と、証跡スナップショットから段状態 (not-started / in-progress / done / stale) を決める純関数を所有する。ソース取得は持たない。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    { "pathPattern": "(^|/)src/workflow/(?:.*/)?[^/]+$" },
+    { "pathPattern": "(^|/)tests/workflow/(?:.*/)?[^/]+$" },
+    { "pathPattern": "^spec/feature/workflow\\.md$" },
+    { "pathPattern": "^spec/domains/workflow-stages\\.domain\\.json$" }
+  ],
+  "cardTemplate": "Summarise the \"workflow-stages\" domain: the fixed 8 LUDIARS stages plus the periodic review, and the pure rules that turn evidence snapshots into stage states with reasons and staleness.",
+  "specRefs": [
+    "spec/ux/product.md",
+    "spec/feature/workflow.md"
+  ]
+}

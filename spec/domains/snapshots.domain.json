@@ -1,0 +1,17 @@
+{
+  "name": "snapshots",
+  "description": "スナップショット (business): ソースごとの最新スナップショットの形、取得結果の適用規則 (失敗時は前回 data を保持)、鮮度判定、refresh use case と、スナップショットだけを読むプロジェクト概要 (overview) を所有する。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    { "pathPattern": "(^|/)src/snapshots/(?:.*/)?[^/]+$" },
+    { "pathPattern": "(^|/)tests/snapshots/(?:.*/)?[^/]+$" },
+    { "pathPattern": "^spec/feature/snapshots\\.md$" },
+    { "pathPattern": "^spec/domains/snapshots\\.domain\\.json$" }
+  ],
+  "cardTemplate": "Summarise the \"snapshots\" domain: per-source cached snapshots, the keep-previous-data-on-failure rule, freshness, the refresh use case and the snapshot-only project overview.",
+  "specRefs": [
+    "spec/ux/product.md",
+    "spec/feature/snapshots.md"
+  ]
+}

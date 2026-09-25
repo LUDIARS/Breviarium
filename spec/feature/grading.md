@@ -1,0 +1,59 @@
+# 検査とクラス評価 (inspections) {#SPEC-br-grading}
+
+価値: BR-UX-2。所属ドメイン: inspections (`src/inspections/**`、`tests/inspections/**`)。
+正規化とクラス判定は純関数 `buildInspections(bundle)` / `gradeRatio(ratio)` / `summarizeTools(inspections)`。
+画面・API・エクスポートはすべて同じ関数の結果を使う (UI ごとに閾値を持たない)。
+
+## 検査の形
+
+```
+Inspection = { tool, kind, status, grade, score, scoreLabel, evidence[], measuredAt, commit, note }
+```
+
+- `status`: `graded` (A〜D を付けた) / `measured` (計測したがクラス基準が無い、または分母 0) / `not-measured` (未取得・未接続・API 未提供)。
+- `grade`: `A` / `B` / `C` / `D` / `—`。`graded` 以外は必ず `—`。**未計測を 0 点や推測で埋めない**
+  (Omnipotens の not-requested と同じ方針)。
+- `score`: `graded` は比 (0〜1)、`measured` は件数などの主な値、`not-measured` は `null`。
+- `evidence[]`: 証跡の場所 (リポ相対パス、または API パス。ホスト名は含めない) と日時。
+- `measuredAt`: 証跡の計測日時 (ファイル mtime・testedAt・updatedAt)。
+- `commit`: リポのファイルを証跡にする検査 (anatomia / omnipotens / vitia / discutere) は、git スナップショットの HEAD sha
+  (作業ツリーのファイルを読むので未コミット変更は区別しない)。Elegantia は評価コンテキストの build。その他は `null`。
+
+## クラス閾値 (固定)
+
+| クラス | 比 |
+|---|---|
+| A | 0.9 以上 |
+| B | 0.7 以上 |
+| C | 0.5 以上 |
+| D | 0.5 未満 |
+| — | 未計測、または分母 0 |
+
+## 検査ごとの比
+
+| tool | kind | status | 比 (graded) / 値 (measured) |
+|---|---|---|---|
+| praeforma | ux-design | graded | ux-goal `definition` の文字列項目のうち空でない割合 (experience / design / goal / story / emotions …) |
+| praeforma | domains | graded | 説明 (`description`) のあるドメインの割合。0 件は measured |
+| praeforma | specs | graded | `status` が `draft` 以外の仕様の割合 (draft/confirmed 比)。0 件は measured |
+| praeforma | acceptance | not-measured | Pf の受入 API が未提供 (HTML が返る) ため使わない |
+| anatomia | domain-declarations | graded | parse でき membership を 1 件以上持つ宣言の割合。0 件は measured |
+| anatomia | domain-coverage | not-measured | 所属率は Anatomia CLI の解析が必要。Breviarium は CLI を起動しない |
+| anatomia | verify | not-measured | 直近 verify の結果は CLI の出力で、リポに残らないため読めない |
+| omnipotens | overall | graded | `omnipotens-summary.json` の `overallAssessment.score / maxScore` |
+| omnipotens | analysis-stages | graded | `spec/plan/03〜11` の frontmatter `status` が `complete` の割合 (分母は complete + partial + blocked)。status 未記載だけなら measured |
+| omnipotens | service-areas | graded | `spec/plan/13〜26` の同上 |
+| vitia | ux | graded | `vitia-game-experience-audit.json` の lens の `score` 平均 (`not_observed` を除く)。audit が `blocked` なら D。採点 lens 0 件は measured |
+| vitia | marketability | graded | `omnipotens-summary.json` の `vitiaScores` の `score / maxScore` 平均。summary に無く `11-vitia-marketability.md` だけあれば measured |
+| discutere | design-gaps | measured | Di ペーパーの論点 (Debate questions / 論点 / gap) と仮説 (Positions to test / 仮説 / hypothes) の項目数と最終更新 |
+| voluptas | survey | measured | JSON ファイル数と最新 mtime |
+| elegantia | quality | graded | `passed / (passed + failed + blocked + unverified)`。評価 0 件は measured。追加達成 (`additionalAchieved`) の割合は副スコアとして `scoreLabel` に出す |
+| concordia | harness | graded | `ddd_enabled` / `tests_required` / `domain_review` のうち有効な割合。open PR 数を `scoreLabel` に出す |
+
+設計書の Vitia「audit.json の value/performance 二軸」は、実データでは audit が lens 別スコアを持ち、
+市場性は Omnipotens summary の `vitiaScores` にあるため、`ux` (audit) と `marketability` (summary) の二軸に対応付けた。
+
+## ツールのまとめクラス
+
+一覧のチップはツールごとに 1 つ。そのツールの `graded` 検査のうち **最も低いクラス** を出す (保守的)。
+`graded` が 1 件も無ければ `—`。関数は `summarizeTools` 1 つで、画面とエクスポートが共有する。
