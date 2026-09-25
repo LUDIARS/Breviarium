@@ -3,10 +3,10 @@ import { describe, it } from 'node:test';
 import { loadConfig } from '../../src/adapters/config/load-config.ts';
 import { createApp } from '../../src/adapters/http/create-app.ts';
 import { describeHealth, registerHealthRoute } from '../../src/adapters/http/health.ts';
-import type { HttpRequest } from '../../src/adapters/http/http-types.ts';
+import type { AccessLevel, HttpRequest } from '../../src/adapters/http/http-types.ts';
 import { NOW, okSources, scriptedSource, testDeps } from '../support/fixtures.ts';
 
-function req(method: string, path: string, body?: unknown, contentType = 'application/json'): HttpRequest {
+function req(method: string, path: string, body?: unknown, contentType = 'application/json', accessLevel: AccessLevel = 'local'): HttpRequest {
   const url = new URL(path, 'http://localhost');
   return {
     method,
@@ -14,8 +14,11 @@ function req(method: string, path: string, body?: unknown, contentType = 'applic
     query: url.searchParams,
     headers: { 'content-type': contentType },
     body: body === undefined ? '' : typeof body === 'string' ? body : JSON.stringify(body),
+    accessLevel,
   };
 }
+
+const viewerGet = (path: string) => req('GET', path, undefined, 'application/json', 'viewer');
 
 const form = (values: Record<string, string>) => new URLSearchParams(values).toString();
 
@@ -188,5 +191,56 @@ describe('health', () => {
     assert.equal(body.sources['elegantia'], 'not_connected');
     assert.equal(body.refresh.periodic, 'disabled');
     assert.doesNotMatch(res.body, /8889/);
+  });
+
+  it('reports whether Cloudflare Access is configured without the team, AUD or public URL', async () => {
+    const { deps } = testDeps();
+    const base = { BREVIARIUM_DATA_DIR: 'data', BREVIARIUM_HOST: '127.0.0.1', BREVIARIUM_PORT: '4370', BREVIARIUM_PUBLIC_URL: 'https://br.example.test' };
+    assert.equal(describeHealth(loadConfig(base), NOW).access.cloudflareAccess, 'not_connected');
+    const config = loadConfig({ ...base, BREVIARIUM_CF_ACCESS_TEAM_DOMAIN: 'ludiars-test.cloudflareaccess.com', BREVIARIUM_CF_ACCESS_AUD: 'd'.repeat(64) });
+    const res = await registerHealthRoute(createApp(deps), describeHealth(config, NOW)).handle(viewerGet('/health'));
+    assert.equal(res.status, 200);
+    assert.equal((JSON.parse(res.body) as { access: { cloudflareAccess: string } }).access.cloudflareAccess, 'configured');
+    for (const secret of ['ludiars-test', 'd'.repeat(64), 'br.example.test']) assert.doesNotMatch(res.body, new RegExp(secret));
+  });
+});
+
+describe('Cloudflare Access viewer', () => {
+  it('lists projects without the registration form and marks the page read-only', async () => {
+    const { app } = await appWithProject();
+    const res = await app.handle(viewerGet('/'));
+    assert.equal(res.status, 200);
+    assert.match(res.body, /閲覧のみ \(Cloudflare Access\)/);
+    assert.match(res.body, /Breviarium/);
+    assert.doesNotMatch(res.body, /<form/);
+    assert.doesNotMatch(res.body, /プロジェクトを登録/);
+    const empty = await createApp(testDeps().deps).handle(viewerGet('/'));
+    assert.doesNotMatch(empty.body, /下のフォームから登録/);
+  });
+
+  it('shows the project detail without refresh, edit or delete controls', async () => {
+    const { app } = await appWithProject();
+    await app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    const res = await app.handle(viewerGet('/projects/Br'));
+    assert.equal(res.status, 200);
+    assert.match(res.body, /閲覧のみ \(Cloudflare Access\)/);
+    assert.match(res.body, /スナップショットの鮮度/);
+    assert.match(res.body, /class="timeline"/);
+    assert.doesNotMatch(res.body, /<form/);
+    assert.doesNotMatch(res.body, /全ソースを更新|登録を編集|登録を削除|<th scope="col">操作<\/th>/);
+    const local = await app.handle(req('GET', '/projects/Br'));
+    assert.doesNotMatch(local.body, /閲覧のみ \(Cloudflare Access\)/);
+    assert.match(local.body, /全ソースを更新/);
+    assert.equal((await app.handle(viewerGet('/projects/Zz'))).status, 404);
+  });
+
+  it('can still read summary.md, summary.json and the JSON API', async () => {
+    const { app } = await appWithProject();
+    const md = await app.handle(viewerGet('/projects/Br/summary.md'));
+    assert.equal(md.status, 200);
+    assert.match(md.body, /エグゼクティブサマリー/);
+    assert.equal((await app.handle(viewerGet('/projects/Br/summary.json'))).status, 200);
+    assert.equal((await app.handle(viewerGet('/api/projects'))).status, 200);
+    assert.equal((await app.handle(viewerGet('/api/projects/Br/overview'))).status, 200);
   });
 });

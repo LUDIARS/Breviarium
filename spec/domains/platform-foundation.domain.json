@@ -1,6 +1,6 @@
 {
   "name": "platform-foundation",
-  "description": "基盤 (platform): 共有カーネル (Result/時刻)、設定読込、JSON ファイル保存、7 ソースの取得 adapter (git/praeforma/anatomia/repo-artifacts/voluptas/elegantia/concordia)、HTTP/HTML 配信面 (ルータ・API・画面・エクスポート)、定期更新、composition root。業務判断は持たない。",
+  "description": "基盤 (platform): 共有カーネル (Result/時刻)、設定読込、JSON ファイル保存、7 ソースの取得 adapter (git/praeforma/anatomia/repo-artifacts/voluptas/elegantia/concordia)、HTTP/HTML 配信面 (ルータ・API・画面・エクスポート)、Web 公開入口 (Host/Origin・Cloudflare Access 検証・閲覧専用レベル)、定期更新、composition root。業務判断は持たない。",
   "presetRules": [],
   "templateRules": [],
   "membership": [
@@ -13,13 +13,15 @@
     { "pathPattern": "(^|/)contracts/[^/]+$" },
     { "pathPattern": "^spec/(ux|architecture|tasks)/[^/]+$" },
     { "pathPattern": "^spec/feature/web-ui\\.md$" },
+    { "pathPattern": "^spec/feature/web-entrance\\.md$" },
     { "pathPattern": "^spec/domains/platform-foundation\\.domain\\.json$" },
     { "pathPattern": "^(package\\.json|package-lock\\.json|tsconfig\\.json|\\.gitignore|\\.gitattributes|README\\.md|augur\\.contracts\\.json|cc\\.acceptance\\.json|excubitor\\.catalog\\.yaml)$" }
   ],
-  "cardTemplate": "Summarise the \"platform-foundation\" domain: shared kernel, config, JSON file storage, the seven source adapters, HTTP+HTML delivery surface with exports, the optional scheduler and the composition root. No business decisions live here.",
+  "cardTemplate": "Summarise the \"platform-foundation\" domain: shared kernel, config, JSON file storage, the seven source adapters, HTTP+HTML delivery surface with exports, the public entrance (Host/Origin, Cloudflare Access verification, read-only viewer level), the optional scheduler and the composition root. No business decisions live here.",
   "specRefs": [
     "spec/ux/product.md",
     "spec/architecture/overview.md",
-    "spec/feature/web-ui.md"
+    "spec/feature/web-ui.md",
+    "spec/feature/web-entrance.md"
   ]
 }

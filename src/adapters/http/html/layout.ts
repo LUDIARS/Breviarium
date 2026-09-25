@@ -1,13 +1,18 @@
 // @implements SPEC-br-web-ui
+import type { AccessLevel } from '../http-types.ts';
 import { esc } from './escape.ts';
 import { STYLE } from './styles.ts';
 
-export function page(title: string, body: string): string {
+/** Shown in the header of every page a Cloudflare Access viewer receives. */
+export const VIEWER_LABEL = '閲覧のみ (Cloudflare Access)';
+
+export function page(title: string, body: string, level: AccessLevel): string {
+  const viewer = level === 'viewer' ? `<span class="badge">${esc(VIEWER_LABEL)}</span>` : '';
   return `<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title><style>${STYLE}</style></head>
 <body><a class="skip-link" href="#main">本文へ移動</a>
-<header class="topbar"><a href="/">Breviarium — プロジェクト総覧</a><span class="muted small">表示はキャッシュ (スナップショット) から</span></header>
+<header class="topbar"><a href="/">Breviarium — プロジェクト総覧</a>${viewer}<span class="muted small">表示はキャッシュ (スナップショット) から</span></header>
 <main id="main">${body}</main></body></html>`;
 }
 

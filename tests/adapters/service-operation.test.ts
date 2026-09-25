@@ -22,6 +22,23 @@ describe('web entrance', () => {
     assert.equal(admitWebRequest({ host: '127.0.0.1:4370', origin: 'http://127.0.0.1:4370' }, access), undefined);
     assert.equal(admitWebRequest({ host: '127.0.0.1:4370', origin: 'https://evil.test' }, access)?.status, 403);
   });
+
+  it('admits the public HTTPS Origin only for its own Host, never widened by the Host wildcard', () => {
+    const published = buildWebAccess(4370, '.example.test', 'https://viewer.example.test', 'https://br.example.test');
+    assert.equal(published.origins.has('https://br.example.test'), false);
+    assert.equal(admitWebRequest({ host: 'br.example.test', origin: 'https://br.example.test' }, published), undefined);
+    assert.equal(admitWebRequest({ host: 'BR.example.test', origin: 'https://br.example.test' }, published), undefined);
+    for (const headers of [
+      { host: 'other.example.test', origin: 'https://br.example.test' },
+      { host: '127.0.0.1:4370', origin: 'https://br.example.test' },
+      { host: 'br.example.test', origin: 'https://other.example.test' },
+      { host: 'br.example.test', origin: 'http://br.example.test' },
+    ]) {
+      assert.equal(admitWebRequest(headers, published)?.status, 403, JSON.stringify(headers));
+    }
+    assert.equal(admitWebRequest({ host: 'br.example.test', origin: 'https://viewer.example.test' }, published), undefined);
+    assert.equal(admitWebRequest({ host: 'br.example.test', origin: 'https://br.example.test' }, access)?.status, 403);
+  });
 });
 
 describe('mobile layout rules', () => {

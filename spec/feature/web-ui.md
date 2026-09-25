@@ -22,6 +22,10 @@ HTML はサーバ側レンダリング (テンプレートエンジン無し)。
 
 フォームの失敗は同じ画面に `?error=` で戻し、バナーで出す (入力値は再表示しない。コードと理由だけ)。
 
+Cloudflare Access 越しの閲覧者 (`viewer`) には登録フォーム・更新ボタン・編集/削除を出さず、ヘッダーに
+「閲覧のみ (Cloudflare Access)」を出す。書き込み系の経路は viewer には入口で 403 `read_only_viewer` になる
+(入口の判定は [web-entrance](web-entrance.md))。
+
 ## API
 
 | 経路 | 内容 |
@@ -33,7 +37,7 @@ HTML はサーバ側レンダリング (テンプレートエンジン無し)。
 | `DELETE /api/projects/:code` | 登録とそのスナップショットを削除 |
 | `POST /api/projects/:code/refresh` | 更新 `{ sources?: SourceId[] }` → ソース別の結果 |
 | `GET /api/projects/:code/overview` | スナップショットから組み立てた概要 (段・検査・ツールまとめ・鮮度) |
-| `GET /health` | 生存 (ソースは configured / not_connected のみ。URL は出さない) |
+| `GET /health` | 生存 (ソースと `access.cloudflareAccess` は configured / not_connected のみ。URL・team・AUD は出さない) |
 
 エラーは `{ error, message }`。`*_not_found` は 404、`duplicate_project` と `refresh_in_progress` は 409、
 不正 JSON は 400、その他の検証エラーは 422。

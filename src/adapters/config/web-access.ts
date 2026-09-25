@@ -1,13 +1,21 @@
 // @implements SPEC-br-architecture
+// @implements SPEC-br-web-entrance
+import { readPublicOrigin } from './public-origin.ts';
+
 /**
- * Which Host / Origin values the Web entrance accepts (same shape as Conflux / Elegantia):
+ * Which Host / Origin values the Web entrance accepts (same shape as Conflux / Lares):
  * the service's own loopback authorities, Excubitor's shared `LUDIARS_ALLOWED_HOSTS`
- * (leading dot = domain and subdomains), and an exact set of extra Viewer origins.
- * No public URL is derived here; Breviarium has no tunnel.
+ * (leading dot = domain and subdomains), an exact set of extra Viewer origins, and the
+ * public HTTPS origin from `BREVIARIUM_PUBLIC_URL`. The public origin is kept apart from
+ * `origins`: it is admitted only when the request Host is its own authority.
  */
 export interface WebAccess {
   readonly hosts: ReadonlySet<string>;
   readonly origins: ReadonlySet<string>;
+  /** Exact public HTTPS origin (Cloudflare Tunnel entrance); absent = no public entrance. */
+  readonly publicOrigin?: string;
+  /** The service's own loopback `host:port` authorities; only these requests may skip Access. */
+  readonly localAuthorities: ReadonlySet<string>;
 }
 
 export class WebAccessError extends Error {}
@@ -51,10 +59,13 @@ export function parseOrigins(key: string, value: string | undefined): string[] {
 
 const LOOPBACK_AUTHORITIES = ['127.0.0.1', 'localhost', '[::1]'];
 
-export function buildWebAccess(port: number, allowedHosts: string | undefined, viewerOrigins: string | undefined): WebAccess {
+export function buildWebAccess(port: number, allowedHosts: string | undefined, viewerOrigins: string | undefined, publicUrl?: string): WebAccess {
   const own = LOOPBACK_AUTHORITIES.map((host) => `${host}:${port}`);
+  const publicOrigin = readPublicOrigin(publicUrl);
   return {
     hosts: new Set([...own, ...parseAllowedHosts(allowedHosts)]),
     origins: new Set([...own.map((authority) => `http://${authority}`), ...parseOrigins('BREVIARIUM_VIEWER_ORIGINS', viewerOrigins)]),
+    ...(publicOrigin ? { publicOrigin } : {}),
+    localAuthorities: new Set(own),
   };
 }

@@ -1,6 +1,7 @@
 // @implements SPEC-br-web-ui
 import type { ProjectOverview } from '../../../snapshots/application/project-overview.ts';
 import { STAGE_STATE_LABELS } from '../../../workflow/domain/stages.ts';
+import type { AccessLevel } from '../http-types.ts';
 import { esc } from './escape.ts';
 import { shortSha, timeTag } from './format.ts';
 import { inspectionTable, toolChips } from './inspection-views.ts';
@@ -19,12 +20,15 @@ function header(o: ProjectOverview): string {
 <div class="actions"><a class="button-link secondary" href="${esc(`/projects/${encodeURIComponent(o.project.code)}/summary.md`)}">要約 (Markdown)</a><a class="button-link secondary" href="${esc(`/projects/${encodeURIComponent(o.project.code)}/summary.json`)}">要約 (JSON)</a></div></section>`;
 }
 
-function refreshSection(o: ProjectOverview): string {
+function refreshSection(o: ProjectOverview, local: boolean): string {
   const action = `/projects/${encodeURIComponent(o.project.code)}/refresh`;
+  const control = local
+    ? `<form class="inline" method="post" action="${esc(action)}"><button type="submit">全ソースを更新</button></form>`
+    : '<p class="small muted">閲覧のみのため、更新・編集・削除はできません (ローカルの画面から操作します)。</p>';
   return `<section class="card"><h2>スナップショットの鮮度</h2>
 <p class="small muted">画面はスナップショットだけを表示します。ソースへ問い合わせるのは「更新」だけです。失敗したソースは前回の値を残し、理由を並べます。</p>
-<form class="inline" method="post" action="${esc(action)}"><button type="submit">全ソースを更新</button></form>
-${sourceTable(o.project.code, o.sources)}</section>`;
+${control}
+${sourceTable(o.project.code, o.sources, local)}</section>`;
 }
 
 function editSection(o: ProjectOverview): string {
@@ -37,15 +41,19 @@ function editSection(o: ProjectOverview): string {
 <div class="actions"><button type="submit" class="danger">削除</button></div></form></details>`;
 }
 
-/** `GET /projects/:code`: stage timeline, inspections with evidence, snapshot freshness, refresh and edit. */
-export function renderProjectPage(o: ProjectOverview, notice: PageNotice): string {
+/**
+ * `GET /projects/:code`: stage timeline, inspections with evidence, snapshot freshness, refresh
+ * and edit. A Cloudflare Access viewer gets the same facts without any refresh, edit or delete form.
+ */
+export function renderProjectPage(o: ProjectOverview, notice: PageNotice, level: AccessLevel): string {
+  const local = level === 'local';
   const body = `${banners(notice)}${header(o)}
 <section class="card"><h2>ワークフロー段階</h2>${stageTimeline(o.stages)}</section>
 <section class="card"><h2>検査とクラス</h2><p class="small muted">— は未計測 (0 点や推測で埋めない)。クラス基準は spec/feature/grading.md。</p>${inspectionTable(o.inspections)}</section>
-${refreshSection(o)}${editSection(o)}`;
-  return page(`${o.project.name} (${o.project.code}) — Breviarium`, body);
+${refreshSection(o, local)}${local ? editSection(o) : ''}`;
+  return page(`${o.project.name} (${o.project.code}) — Breviarium`, body, level);
 }
 
-export function renderNotFoundPage(code: string): string {
-  return page('見つかりません — Breviarium', `<h1>見つかりません</h1><p>${esc(code)} は登録されていません。</p><p><a href="/">一覧へ戻る</a></p>`);
+export function renderNotFoundPage(code: string, level: AccessLevel): string {
+  return page('見つかりません — Breviarium', `<h1>見つかりません</h1><p>${esc(code)} は登録されていません。</p><p><a href="/">一覧へ戻る</a></p>`, level);
 }

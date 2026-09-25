@@ -10,6 +10,7 @@ LUDIARS プロジェクト状態のエグゼクティブサマリー。登録し
 - 段判定: [spec/feature/workflow.md](spec/feature/workflow.md) ・ クラス評価: [spec/feature/grading.md](spec/feature/grading.md)
 - キャッシュ: [spec/feature/snapshots.md](spec/feature/snapshots.md) ・ 画面/API: [spec/feature/web-ui.md](spec/feature/web-ui.md)
 - 登録規則: [spec/feature/project-registry.md](spec/feature/project-registry.md)
+- 公開入口 (Cloudflare Access): [spec/feature/web-entrance.md](spec/feature/web-entrance.md)
 
 ## 起動
 
@@ -40,10 +41,45 @@ npm test                    # node --test "tests/**/*.test.ts"
 | `BREVIARIUM_SNAPSHOT_MAX_AGE_HOURS` | | 24 | これより古いスナップショットは「古い」 |
 | `BREVIARIUM_STALE_AFTER_DAYS` | | 30 | 完了した段の証跡がこれより古いと段は stale |
 | `BREVIARIUM_STALE_COMMIT_LAG_DAYS` | | 7 | 証跡が HEAD の commit よりこれ以上古いと段は stale |
-| `LUDIARS_ALLOWED_HOSTS` | | — | Excubitor 共通の許可ホスト (先頭 `.` でサブドメインを含む) |
+| `LUDIARS_ALLOWED_HOSTS` | ✓ (catalog) | — | Excubitor 共通の許可ホスト (先頭 `.` でサブドメインを含む)。公開 Host はここで受ける |
+| `BREVIARIUM_PUBLIC_URL` | ✓ (catalog) | 未設定 | 公開 HTTPS origin (`https://br${DOMAIN_ROOT}`、`frontend_url` と同じ anchor)。path・末尾 `/`・credentials は起動エラー |
+| `BREVIARIUM_CF_ACCESS_TEAM_DOMAIN` | | 未設定 | Cloudflare Access の team (`<team>.cloudflareaccess.com`、スキームなし)。AUD と両方そろえる |
+| `BREVIARIUM_CF_ACCESS_AUD` | | 未設定 | Breviarium 用 Access application の AUD (64 桁 hex) |
+| `EXCUBITOR_SERVICE_CONFIG_JSON` | | — | Excubitor のサービス設定。`cloudflareAccess.{teamDomain,audience}` を読む (上の 2 env が優先) |
 | `BREVIARIUM_VIEWER_ORIGINS` | | — | 追加で許す Origin (完全一致、カンマ区切り) |
 
 URL 未設定・binding 未登録のソースは「未接続」になり、推測で URL やプロジェクトを当てない。
+
+## 公開手順 (Cloudflare Tunnel + Access)
+
+Breviarium は loopback (`127.0.0.1:4370`) だけで待ち受ける。Internal 公開は同じ機械の cloudflared が
+`https://br.<domain>` を loopback へ転送し、Cloudflare Access で利用者を絞る。**CF 側の設定は人間が行う**。
+仕様は [spec/feature/web-entrance.md](spec/feature/web-entrance.md)。
+
+1. **Tunnel の public hostname**: `br.<domain>` → `http://127.0.0.1:4370`。Host は書き換えずに保持する
+   (HTTP Host Header を上書きしない)。`LUDIARS_ALLOWED_HOSTS` (Ex の global env) がその Host を含むことを確かめる。
+2. **Access application**: `br.<domain>` に self-hosted application を作り、利用者を限定する **Allow** ポリシーを付ける
+   (Bypass にしない。JWT の付かない要求は Breviarium が 403 で断る)。application の AUD tag を控える。
+3. **Ex から team / AUD を渡す**: Excubitor のサービス設定 (`breviarium` の runtime-config に
+   `{ "cloudflareAccess": { "teamDomain": "<team>.cloudflareaccess.com", "audience": "<AUD>" } }`) を保存するか、
+   `BREVIARIUM_CF_ACCESS_TEAM_DOMAIN` と `BREVIARIUM_CF_ACCESS_AUD` を両方渡す。値は catalog・spec・ログに書かない。
+4. **再起動**: 本体 checkout へ反映後、Excubitor から `breviarium` を再起動する (`cc-test` の claim / release を使う)。
+   `GET http://127.0.0.1:4370/health` の `access.cloudflareAccess` が `configured` になっていることを確かめる。
+
+公開経由の要求は Access 検証済みの **閲覧専用** (GET / HEAD) で、ヘッダーに「閲覧のみ (Cloudflare Access)」と出る。
+登録・更新・編集・削除はローカル (`http://127.0.0.1:4370/`) からだけ行う。
+
+| 応答 | 意味 |
+|---|---|
+| 503 `cloudflare_access_not_configured` | 公開経由の要求だが team / AUD が渡っていない (手順 3) |
+| 403 `cloudflare_access_required` | `Cf-Access-Jwt-Assertion` が無い (Access を通っていない・Bypass) |
+| 403 `cloudflare_access_invalid` | JWT が別 team / 別 application / 期限切れ / 署名不正 |
+| 503 `cloudflare_access_unavailable` | 署名鍵 (`https://<team>/cdn-cgi/access/certs`) を取得できない |
+| 403 `read_only_viewer` | 閲覧者の書き込み (POST / PUT / DELETE) |
+| 403 `host_not_allowed` / `origin_not_allowed` | Host が `LUDIARS_ALLOWED_HOSTS` に無い / Origin が許可外 |
+
+**公開をやめる (復旧)**: `BREVIARIUM_PUBLIC_URL` と Access の設定を外して再起動すれば loopback のみに戻る
+(loopback 以外の要求は 503)。CF 側で tunnel の public hostname を外せば外部からの経路自体がなくなる。
 
 ## 画面
 
@@ -62,7 +98,7 @@ URL 未設定・binding 未登録のソースは「未接続」になり、推�
 | `GET` / `PUT` / `DELETE /api/projects/:code` | 取得 / 更新 (bindings は丸ごと置換) / 削除 (スナップショットも消す) |
 | `POST /api/projects/:code/refresh` | 更新 `{ sources?: ["git","praeforma","anatomia","repo-artifacts","voluptas","elegantia","concordia"] }` |
 | `GET /api/projects/:code/overview` | スナップショットから組み立てた概要 |
-| `GET /health` | 生存のみ (ソースは configured / not_connected、URL は出さない) |
+| `GET /health` | 生存のみ (ソースと Cloudflare Access は configured / not_connected、URL・team・AUD は出さない) |
 
 登録の `bindings`: `praeformaProjectId` (Pf プロジェクト id)、`elegantiaProduct` (Elegantia の product)、
 `voluptasPath` (Voluptas データの相対パス)、`githubRepo` (`owner/name`、Cc の PR を `repo_origin` で照合)。

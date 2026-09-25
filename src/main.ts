@@ -1,6 +1,8 @@
 // @implements SPEC-br-architecture
 import { loadConfig } from './adapters/config/load-config.ts';
 import type { AppDeps } from './adapters/http/app-deps.ts';
+import { createJwksFetcher } from './adapters/http/cloudflare-access-keys.ts';
+import { createAccessTokenVerifier } from './adapters/http/cloudflare-access-verifier.ts';
 import { createApp } from './adapters/http/create-app.ts';
 import { describeHealth, registerHealthRoute } from './adapters/http/health.ts';
 import { createNodeServer } from './adapters/http/node-server.ts';
@@ -39,7 +41,8 @@ async function main(): Promise<void> {
     refresh,
   };
   const router = registerHealthRoute(createApp(deps), describeHealth(config, systemClock.now()));
-  const server = createNodeServer(router, config.access, (error) => log(`request failed: ${error instanceof Error ? error.stack : String(error)}`));
+  const verifier = config.cloudflareAccess ? createAccessTokenVerifier(config.cloudflareAccess, createJwksFetcher(config.cloudflareAccess, fetch)) : undefined;
+  const server = createNodeServer(router, config.access, verifier, (error) => log(`request failed: ${error instanceof Error ? error.stack : String(error)}`));
   const scheduler = startRefreshScheduler(config.refreshIntervalSec, projects, refresh, (error) =>
     log(`periodic refresh: ${error instanceof Error ? error.message : String(error)}`),
   );
@@ -50,7 +53,8 @@ async function main(): Promise<void> {
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
   server.listen(config.port, config.host, () => {
-    log(`listening on http://${config.host}:${config.port} (periodic refresh ${scheduler ? `every ${config.refreshIntervalSec}s` : 'disabled'})`);
+    const entrance = verifier ? 'Cloudflare Access configured' : 'Cloudflare Access not configured, public requests get 503';
+    log(`listening on http://${config.host}:${config.port} (periodic refresh ${scheduler ? `every ${config.refreshIntervalSec}s` : 'disabled'}; ${entrance})`);
   });
 }
 

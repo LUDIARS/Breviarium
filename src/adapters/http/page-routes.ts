@@ -28,10 +28,13 @@ function afterPost(result: Result<unknown>, onOk: string, onError: string): Retu
   return redirect(`${onError}${separator}error=${encodeURIComponent(result.error.code)}`);
 }
 
-/** Server-rendered pages, their form posts (303 PRG) and the summary exports. */
+/**
+ * Server-rendered pages, their form posts (303 PRG) and the summary exports. Pages follow the
+ * request's access level (a viewer gets no forms); a viewer's POST never reaches these routes.
+ */
 export function registerPageRoutes(router: Router, deps: AppDeps): Router {
   return router
-    .add('GET', '/', async (req) => htmlResponse(200, renderIndexPage(await loadPortfolio(deps.overview), noticeFromQuery(req.query))))
+    .add('GET', '/', async (req) => htmlResponse(200, renderIndexPage(await loadPortfolio(deps.overview), noticeFromQuery(req.query), req.accessLevel)))
     .add('POST', '/projects', async (req) => {
       const form = readForm(req);
       const result = await registerProject(deps.registry, {
@@ -46,8 +49,8 @@ export function registerPageRoutes(router: Router, deps: AppDeps): Router {
     .add('GET', '/projects/:code', async (req, params) => {
       const code = params['code'] ?? '';
       const overview = await loadProjectOverview(deps.overview, code);
-      if (!overview.ok) return htmlResponse(404, renderNotFoundPage(code));
-      return htmlResponse(200, renderProjectPage(overview.value, noticeFromQuery(req.query)));
+      if (!overview.ok) return htmlResponse(404, renderNotFoundPage(code, req.accessLevel));
+      return htmlResponse(200, renderProjectPage(overview.value, noticeFromQuery(req.query), req.accessLevel));
     })
     .add('POST', '/projects/:code', async (req, params) => {
       const code = params['code'] ?? '';
@@ -71,9 +74,9 @@ export function registerPageRoutes(router: Router, deps: AppDeps): Router {
       if (formValue(readForm(req), 'confirm').trim().toLowerCase() !== code.toLowerCase()) return redirect(projectPath(code, '?error=confirm_mismatch'));
       return afterPost(await removeProject(deps.registry, code), '/?notice=deleted', projectPath(code));
     })
-    .add('GET', '/projects/:code/summary.md', async (_req, params) => {
+    .add('GET', '/projects/:code/summary.md', async (req, params) => {
       const overview = await loadProjectOverview(deps.overview, params['code'] ?? '');
-      if (!overview.ok) return htmlResponse(404, renderNotFoundPage(params['code'] ?? ''));
+      if (!overview.ok) return htmlResponse(404, renderNotFoundPage(params['code'] ?? '', req.accessLevel));
       return markdownResponse(200, renderSummaryMarkdown(toExecutiveSummary(overview.value)), `${overview.value.project.code}-summary.md`);
     })
     .add('GET', '/projects/:code/summary.json', async (_req, params) => {

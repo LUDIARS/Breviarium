@@ -13,10 +13,10 @@ src/
   inspections/       検査の正規化・クラス判定 (純関数) と、ソースごとの extractor (純関数)
   snapshots/         スナップショット・鮮度 (純関数) と refresh use case、スナップショットだけを読む overview
   adapters/
-    config/          loadConfig (catalog env → 既定値はこのファイル)、Web 入口の Host/Origin
+    config/          loadConfig (catalog env → 既定値はこのファイル)、Web 入口の Host/Origin・公開 URL・Cloudflare Access 設定
     storage/         JSON ファイル (data/projects.json、data/snapshots/<code>/<source>.json)
     sources/         git / praeforma / anatomia / repo-artifacts / voluptas / elegantia / concordia
-    http/            ルータ・API・画面 (一覧 / 詳細)・エクスポート (summary.md / summary.json)
+    http/            ルータ・API・画面 (一覧 / 詳細)・エクスポート (summary.md / summary.json)・入口 (Access 検証・アクセスレベル)
     scheduler/       任意の定期更新 (既定は無効)
   main.ts            composition root
 ```
@@ -65,4 +65,7 @@ Elegantia の catalog は現時点で `provides: ELEGANTIA_URL` を持たない�
 - ルータは Conflux と同じ (責任が同じ): transport 中立の `HttpRequest` → `Router.handle` → `HttpResponse`。
   テストは socket を開かず `Router.handle` を直接呼ぶ。
 - Host/Origin ガード (DNS rebinding 対策) はルーティング前。待受は loopback のみ (`BREVIARIUM_HOST`)。
+- 公開入口 (`https://br${DOMAIN_ROOT}`) は同じ機械の Cloudflare Tunnel が loopback へ転送する。入口の順序は
+  Host/Origin → Cloudflare Access (JWT 検証) → アクセスレベル (`local` / 閲覧専用の `viewer`) → 本文 → Router。
+  JWT 検証は node:crypto だけで行い、実行時依存は増やさない。詳細は [web-entrance](../feature/web-entrance.md)。
 - `GET /health` は生存だけを返す。ソースの到達性は調べず、URL も出さない (各ソースは configured / not_connected のみ)。

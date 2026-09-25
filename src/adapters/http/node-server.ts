@@ -1,8 +1,10 @@
 // @implements SPEC-br-web-ui
+// @implements SPEC-br-web-entrance
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { WebAccess } from '../config/web-access.ts';
-import { admitWebRequest } from './host-origin-guard.ts';
+import type { AccessTokenVerifier } from './cloudflare-access-verifier.ts';
 import type { HttpRequest, HttpResponse } from './http-types.ts';
+import { admitRequest } from './request-admission.ts';
 import type { Router } from './router.ts';
 
 export const MAX_BODY_BYTES = 1_000_000;
@@ -33,27 +35,29 @@ function send(res: ServerResponse, response: HttpResponse): void {
 }
 
 /**
- * Adapts node:http to the transport-neutral router. Host / Origin admission runs before
- * the body is read or any route is matched. The caller owns the returned server and is
- * responsible for `listen` and `close`.
+ * Adapts node:http to the transport-neutral router. The entrance (Host/Origin → Cloudflare
+ * Access → access level) runs before the body is read or any route is matched. The caller
+ * owns the returned server and is responsible for `listen` and `close`.
  */
-export function createNodeServer(router: Router, access: WebAccess, onError: (error: unknown) => void): Server {
+export function createNodeServer(router: Router, access: WebAccess, verifier: AccessTokenVerifier | undefined, onError: (error: unknown) => void): Server {
   return createServer((req: IncomingMessage, res: ServerResponse) => {
     void (async () => {
       try {
         const headers = toHeaders(req);
-        const refusal = admitWebRequest(headers, access);
-        if (refusal) {
-          send(res, refusal);
+        const method = req.method ?? 'GET';
+        const admission = await admitRequest(method, headers, { access, verifier, onError });
+        if ('refusal' in admission) {
+          send(res, admission.refusal);
           return;
         }
         const url = new URL(req.url ?? '/', 'http://localhost');
         const request: HttpRequest = {
-          method: req.method ?? 'GET',
+          method,
           path: url.pathname,
           query: url.searchParams,
           headers,
-          body: req.method === 'GET' || req.method === 'HEAD' ? '' : await readBody(req),
+          body: method === 'GET' || method === 'HEAD' ? '' : await readBody(req),
+          accessLevel: admission.level,
         };
         send(res, await router.handle(request));
       } catch (error) {

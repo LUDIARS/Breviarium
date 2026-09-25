@@ -8,7 +8,8 @@ export type CapabilityState = 'configured' | 'not_connected';
 /**
  * `GET /health` body. `status: alive` only means the process serves HTTP. Sources are
  * never probed here (`not_checked`); each reports only whether it is configured, and no
- * URL or path is included.
+ * URL or path is included. `access.cloudflareAccess` says whether the public entrance can
+ * verify Access tokens (the team, AUD and public URL are not included).
  */
 export interface HealthReport {
   readonly service: 'breviarium';
@@ -22,6 +23,7 @@ export interface HealthReport {
     readonly voluptas: CapabilityState;
   };
   readonly refresh: { readonly periodic: 'disabled' | 'enabled'; readonly intervalSec: number };
+  readonly access: { readonly cloudflareAccess: CapabilityState };
 }
 
 const state = (value: string | undefined): CapabilityState => (value ? 'configured' : 'not_connected');
@@ -39,6 +41,7 @@ export function describeHealth(config: BreviariumConfig, startedAt: string): Hea
       voluptas: state(config.voluptasDataDir),
     },
     refresh: { periodic: config.refreshIntervalSec > 0 ? 'enabled' : 'disabled', intervalSec: config.refreshIntervalSec },
+    access: { cloudflareAccess: config.cloudflareAccess ? 'configured' : 'not_connected' },
   };
 }
 

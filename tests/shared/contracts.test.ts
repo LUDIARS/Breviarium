@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import acceptsClaimsContract from '../../contracts/accepts-claims.contract.ts';
+import admitCloudflareRequestContract from '../../contracts/admit-cloudflare-request.contract.ts';
+import admitMethodContract from '../../contracts/admit-method.contract.ts';
 import admitWebRequestContract from '../../contracts/admit-web-request.contract.ts';
 import applyOutcomeContract from '../../contracts/apply-outcome.contract.ts';
 import assessFreshnessContract from '../../contracts/assess-freshness.contract.ts';
@@ -13,14 +16,27 @@ import inspectElegantiaContract from '../../contracts/inspect-elegantia.contract
 import loadConfigContract from '../../contracts/load-config.contract.ts';
 import planRegistrationContract from '../../contracts/plan-registration.contract.ts';
 import pullRequestsForContract from '../../contracts/pull-requests-for.contract.ts';
+import readCloudflareAccessConfigContract from '../../contracts/read-cloudflare-access-config.contract.ts';
+import readPublicOriginContract from '../../contracts/read-public-origin.contract.ts';
 import refreshProjectContract from '../../contracts/refresh-project.contract.ts';
+import renderIndexPageContract from '../../contracts/render-index-page.contract.ts';
+import renderProjectPageContract from '../../contracts/render-project-page.contract.ts';
 import toExecutiveSummaryContract from '../../contracts/to-executive-summary.contract.ts';
+import { readCloudflareAccessConfig } from '../../src/adapters/config/cloudflare-access-config.ts';
 import { loadConfig } from '../../src/adapters/config/load-config.ts';
+import { readPublicOrigin } from '../../src/adapters/config/public-origin.ts';
 import { buildWebAccess } from '../../src/adapters/config/web-access.ts';
+import { admitMethod } from '../../src/adapters/http/access-level.ts';
+import { acceptsClaims } from '../../src/adapters/http/cloudflare-access-claims.ts';
+import { admitCloudflareRequest } from '../../src/adapters/http/cloudflare-access-guard.ts';
+import type { AccessTokenVerifier } from '../../src/adapters/http/cloudflare-access-verifier.ts';
 import { toExecutiveSummary } from '../../src/adapters/http/export/summary-json.ts';
 import { describeHealth } from '../../src/adapters/http/health.ts';
 import { admitWebRequest } from '../../src/adapters/http/host-origin-guard.ts';
 import { esc } from '../../src/adapters/http/html/escape.ts';
+import { renderIndexPage } from '../../src/adapters/http/html/index-page.ts';
+import { renderProjectPage } from '../../src/adapters/http/html/project-page.ts';
+import type { HttpResponse } from '../../src/adapters/http/http-types.ts';
 import { buildInspections } from '../../src/inspections/domain/build-inspections.ts';
 import { EMPTY_BUNDLE } from '../../src/inspections/domain/evidence.ts';
 import { gradeRatio } from '../../src/inspections/domain/grading.ts';
@@ -35,6 +51,7 @@ import type { SourceSnapshot } from '../../src/snapshots/domain/model.ts';
 import { applyOutcome } from '../../src/snapshots/domain/snapshot-rules.ts';
 import { evaluateStages } from '../../src/workflow/domain/stage-evaluation.ts';
 import { DEFAULT_STALE_POLICY } from '../../src/workflow/domain/staleness.ts';
+import { ACCESS_CONFIG, AUD, claims, NOW_MS, NOW_SEC, TEAM } from '../support/access-tokens.ts';
 import { elegantia, fullBundle, NOW, project, testDeps } from '../support/fixtures.ts';
 
 /** The predicates are exercised against the real rules, and against a violation, so they cannot pass vacuously. */
@@ -130,11 +147,18 @@ describe('contract predicates hold for the rules', () => {
   });
 
   it('C-12 web entrance', () => {
-    const access = buildWebAccess(4370, undefined, undefined);
-    for (const headers of [{ host: '127.0.0.1:4370' }, { host: 'evil.test' }, { host: 'localhost:4370', origin: 'https://evil.test' }]) {
+    const access = buildWebAccess(4370, '.example.test', undefined, 'https://br.example.test');
+    for (const headers of [
+      { host: '127.0.0.1:4370' },
+      { host: 'evil.test' },
+      { host: 'localhost:4370', origin: 'https://evil.test' },
+      { host: 'br.example.test', origin: 'https://br.example.test' },
+      { host: 'other.example.test', origin: 'https://br.example.test' },
+    ]) {
       assert.equal(admitWebRequestContract.post(admitWebRequest(headers, access), headers, access), true);
     }
     assert.equal(typeof admitWebRequestContract.post(undefined, { host: 'evil.test' }, access), 'string');
+    assert.equal(typeof admitWebRequestContract.post(undefined, { host: 'other.example.test', origin: 'https://br.example.test' }, access), 'string');
   });
 
   it('C-13 health and C-14 config', () => {
@@ -145,10 +169,82 @@ describe('contract predicates hold for the rules', () => {
     assert.equal(describeHealthContract.post(describeHealth(config, NOW), config), true);
     const exposing = { ...describeHealth(config, NOW), startedAt: 'http://127.0.0.1:11111' };
     assert.equal(typeof describeHealthContract.post(exposing, config), 'string');
+    const published = loadConfig({ ...env, BREVIARIUM_PUBLIC_URL: 'https://br.example.test', BREVIARIUM_CF_ACCESS_TEAM_DOMAIN: TEAM, BREVIARIUM_CF_ACCESS_AUD: AUD });
+    assert.equal(describeHealthContract.post(describeHealth(published, NOW), published), true);
+    assert.equal(typeof describeHealthContract.post({ ...describeHealth(published, NOW), access: { cloudflareAccess: 'not_connected' } }, published), 'string');
+    assert.equal(typeof describeHealthContract.post({ ...describeHealth(published, NOW), startedAt: AUD }, published), 'string');
   });
 
   it('C-15 escaping', () => {
     for (const v of ['<script>"x"</script>', "it's", 'plain', null, 3]) assert.equal(escContract.post(esc(v)), true);
     assert.equal(typeof escContract.post('<b>'), 'string');
+  });
+
+  it('C-16 public origin', () => {
+    for (const value of ['https://br.example.test', 'https://br.example.test:8443', undefined, ' ']) {
+      assert.equal(readPublicOriginContract.post(readPublicOrigin(value), value), true);
+    }
+    assert.equal(typeof readPublicOriginContract.post('https://br.example.test/app', 'https://br.example.test/app'), 'string');
+    assert.equal(typeof readPublicOriginContract.post('http://br.example.test', 'http://br.example.test'), 'string');
+    assert.equal(typeof readPublicOriginContract.post(undefined, 'https://br.example.test'), 'string');
+  });
+
+  it('C-17 Cloudflare Access config', () => {
+    const json = JSON.stringify({ cloudflareAccess: { teamDomain: TEAM, audience: AUD } });
+    for (const env of [{}, { BREVIARIUM_CF_ACCESS_TEAM_DOMAIN: TEAM, BREVIARIUM_CF_ACCESS_AUD: AUD }, { EXCUBITOR_SERVICE_CONFIG_JSON: json }, { EXCUBITOR_SERVICE_CONFIG_JSON: '{}' }]) {
+      assert.equal(readCloudflareAccessConfigContract.post(readCloudflareAccessConfig(env), env), true);
+    }
+    assert.equal(typeof readCloudflareAccessConfigContract.post(undefined, { EXCUBITOR_SERVICE_CONFIG_JSON: json }), 'string');
+    assert.equal(typeof readCloudflareAccessConfigContract.post(ACCESS_CONFIG, {}), 'string');
+    assert.equal(typeof readCloudflareAccessConfigContract.post({ issuer: 'https://evil.test', audience: AUD }, { BREVIARIUM_CF_ACCESS_TEAM_DOMAIN: TEAM, BREVIARIUM_CF_ACCESS_AUD: AUD }), 'string');
+  });
+
+  it('C-18 Access claims', () => {
+    for (const payload of [claims(), claims({ aud: AUD }), claims({ iss: 'https://other.cloudflareaccess.com' }), claims({ exp: NOW_SEC }), claims({ nbf: NOW_SEC + 1 }), claims({ exp: undefined })]) {
+      assert.equal(acceptsClaimsContract.post(acceptsClaims(payload, ACCESS_CONFIG, NOW_MS), payload, ACCESS_CONFIG, NOW_MS), true);
+    }
+    assert.equal(typeof acceptsClaimsContract.post(true, claims({ aud: ['x'] }), ACCESS_CONFIG, NOW_MS), 'string');
+    assert.equal(typeof acceptsClaimsContract.post(false, claims(), ACCESS_CONFIG, NOW_MS), 'string');
+  });
+
+  it('C-19 Cloudflare Access admission', async () => {
+    const access = buildWebAccess(4370, '.example.test', undefined, 'https://br.example.test');
+    const verdicts: Readonly<Record<string, 'valid' | 'invalid' | 'unavailable'>> = { good: 'valid', bad: 'invalid', down: 'unavailable' };
+    const verifier: AccessTokenVerifier = { verify: async (t) => verdicts[t] ?? 'invalid' };
+    const cases: Array<[Record<string, string>, AccessTokenVerifier | undefined]> = [
+      [{ host: '127.0.0.1:4370' }, verifier],
+      [{ host: 'br.example.test', 'cf-access-jwt-assertion': 'good' }, verifier],
+      [{ host: 'br.example.test', 'cf-access-jwt-assertion': 'bad' }, verifier],
+      [{ host: 'br.example.test', 'cf-access-jwt-assertion': 'down' }, verifier],
+      [{ host: '127.0.0.1:4370', 'cf-ray': 'x' }, verifier],
+      [{ host: 'br.example.test' }, undefined],
+    ];
+    const ignore = () => undefined;
+    for (const [headers, v] of cases) {
+      assert.equal(admitCloudflareRequestContract.post(await admitCloudflareRequest(headers, access, v, ignore), headers, access, v), true, JSON.stringify(headers));
+    }
+    assert.equal(typeof admitCloudflareRequestContract.post({ level: 'local' }, { host: 'br.example.test' }, access, verifier), 'string');
+    assert.equal(typeof admitCloudflareRequestContract.post({ level: 'viewer' }, { host: '127.0.0.1:4370', 'cf-ray': 'x' }, access, verifier), 'string');
+  });
+
+  it('C-20 read-only viewer', () => {
+    const cases = [['local', 'POST'], ['local', 'DELETE'], ['viewer', 'GET'], ['viewer', 'HEAD'], ['viewer', 'POST'], ['viewer', 'PUT']] as const;
+    for (const [level, method] of cases) {
+      assert.equal(admitMethodContract.post(admitMethod(level, method), level, method), true);
+    }
+    assert.equal(typeof admitMethodContract.post(undefined, 'viewer', 'DELETE'), 'string');
+    const refusal: HttpResponse = { status: 403, headers: {}, body: '{"error":"read_only_viewer"}' };
+    assert.equal(typeof admitMethodContract.post(refusal, 'local', 'POST'), 'string');
+  });
+
+  it('C-21 / C-22 viewer pages', () => {
+    const overview = composeOverview(project(), [snap], NOW, policy);
+    for (const level of ['local', 'viewer'] as const) {
+      assert.equal(renderProjectPageContract.post(renderProjectPage(overview, {}, level), overview, {}, level), true, level);
+      assert.equal(renderIndexPageContract.post(renderIndexPage([overview], {}, level), [overview], {}, level), true, level);
+      assert.equal(renderIndexPageContract.post(renderIndexPage([], {}, level), [], {}, level), true, level);
+    }
+    assert.equal(typeof renderProjectPageContract.post(renderProjectPage(overview, {}, 'local'), overview, {}, 'viewer'), 'string');
+    assert.equal(typeof renderIndexPageContract.post(renderIndexPage([overview], {}, 'local'), [overview], {}, 'viewer'), 'string');
   });
 });

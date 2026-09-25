@@ -1,5 +1,7 @@
 // @implements SPEC-br-architecture
 import { isAbsolute } from 'node:path';
+import { type CloudflareAccessConfig, CloudflareAccessConfigError, readCloudflareAccessConfig } from './cloudflare-access-config.ts';
+import { PublicOriginError } from './public-origin.ts';
 import { SourceUrlError, resolveSourceUrl } from './source-urls.ts';
 import { buildWebAccess, type WebAccess, WebAccessError } from './web-access.ts';
 
@@ -26,6 +28,8 @@ export interface BreviariumConfig {
   readonly staleCommitLagDays: number;
   /** Host / Origin values the Web entrance accepts. */
   readonly access: WebAccess;
+  /** Access application the public entrance verifies against; absent = public requests get 503. */
+  readonly cloudflareAccess?: CloudflareAccessConfig;
 }
 
 export const CONFIG_DEFAULTS = {
@@ -55,7 +59,10 @@ function integer(env: Env, key: string, min: number, max: number, fallback?: num
   return n;
 }
 
-/** Breviarium has no public entrance; it listens on loopback only. */
+/**
+ * Breviarium listens on loopback only; the public entrance is a Cloudflare Tunnel on the
+ * same machine forwarding to this loopback port (spec/feature/web-entrance.md).
+ */
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 
 function loopbackHost(env: Env): string {
@@ -83,7 +90,14 @@ function asConfigError<T>(read: () => T): T {
   try {
     return read();
   } catch (error) {
-    if (error instanceof SourceUrlError || error instanceof WebAccessError) throw new ConfigError(error.message);
+    if (
+      error instanceof SourceUrlError ||
+      error instanceof WebAccessError ||
+      error instanceof PublicOriginError ||
+      error instanceof CloudflareAccessConfigError
+    ) {
+      throw new ConfigError(error.message);
+    }
     throw error;
   }
 }
@@ -94,6 +108,7 @@ export function loadConfig(env: Env): BreviariumConfig {
   const elegantiaUrl = asConfigError(() => resolveSourceUrl(env, 'ELEGANTIA'));
   const concordiaUrl = asConfigError(() => resolveSourceUrl(env, 'CONCORDIA'));
   const voluptasDataDir = optionalDir(env, 'BREVIARIUM_VOLPUTAS_DATA_DIR');
+  const cloudflareAccess = asConfigError(() => readCloudflareAccessConfig(env));
   return {
     dataDir: required(env, 'BREVIARIUM_DATA_DIR'),
     host: loopbackHost(env),
@@ -107,6 +122,7 @@ export function loadConfig(env: Env): BreviariumConfig {
     snapshotMaxAgeHours: integer(env, 'BREVIARIUM_SNAPSHOT_MAX_AGE_HOURS', 1, 24 * 365, CONFIG_DEFAULTS.snapshotMaxAgeHours),
     staleAfterDays: integer(env, 'BREVIARIUM_STALE_AFTER_DAYS', 1, 3650, CONFIG_DEFAULTS.staleAfterDays),
     staleCommitLagDays: integer(env, 'BREVIARIUM_STALE_COMMIT_LAG_DAYS', 0, 3650, CONFIG_DEFAULTS.staleCommitLagDays),
-    access: asConfigError(() => buildWebAccess(port, env['LUDIARS_ALLOWED_HOSTS'], env['BREVIARIUM_VIEWER_ORIGINS'])),
+    access: asConfigError(() => buildWebAccess(port, env['LUDIARS_ALLOWED_HOSTS'], env['BREVIARIUM_VIEWER_ORIGINS'], env['BREVIARIUM_PUBLIC_URL'])),
+    ...(cloudflareAccess ? { cloudflareAccess } : {}),
   };
 }

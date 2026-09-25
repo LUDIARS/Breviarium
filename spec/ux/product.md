@@ -19,7 +19,7 @@ LUDIARS の各プロジェクトが「ワークフローのどこにいて」「
 | BR-UX-1 | 登録した全プロジェクトが「LUDIARS ワークフローのどの段階にいるか」を一覧で分かる | project-registry, workflow-stages |
 | BR-UX-2 | 各プロジェクトが「どの検査を受け、どのクラス評価か」を根拠 (証跡の場所・計測日時・対象 commit) 付きで分かる | inspections |
 | BR-UX-3 | 表示は常にツール側キャッシュから出る。各ソースの取得日時と鮮度が見え、更新は明示操作 (または定期) で行う | snapshots |
-| BR-UX-4 | 公開 (Internal) 前提: 秘匿語・個人データ・秘密を持たない。data/ は Git 管理外、要約は Markdown/JSON で書き出せる | platform-foundation, snapshots |
+| BR-UX-4 | 公開 (Internal) 前提: 秘匿語・個人データ・秘密を持たない。data/ は Git 管理外、要約は Markdown/JSON で書き出せる。Internal 公開は Cloudflare Access 検証済みの閲覧専用 (書き込みは loopback だけ) | platform-foundation, snapshots |
 
 ## 不変条件
 
@@ -31,6 +31,9 @@ LUDIARS の各プロジェクトが「ワークフローのどこにいて」「
   書き出し (summary.md / summary.json) にはローカルの絶対パス (`repoPath`) と Voluptas の相対パスを含めない。
   Voluptas の証跡はファイル数と最新日時だけを持ち、ファイル名 (回答者名を含み得る) を保存しない。
 - **読むだけ**: 対象リポの `spec/`・`report/` と Voluptas のデータは読むだけで書かない。Anatomia CLI は起動しない。
+- **Internal 公開 (BR-UX-4)**: `https://br${DOMAIN_ROOT}` (Cloudflare Tunnel → loopback) は Cloudflare Access の JWT を
+  検証できた要求だけを通し、閲覧専用 (GET / HEAD) にする。画面にも登録・更新・編集・削除を出さない。JWT なしで開くモードは作らず、
+  Host 許可を Origin 許可へ広げない。詳細は [web-entrance](../feature/web-entrance.md)。
 
 ## 画面の入口
 

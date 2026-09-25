@@ -9,7 +9,17 @@
 # それを読む (BREVIARIUM_<SOURCE>_URL を明示した場合だけそちらを優先する)。
 # provides を持たないソースは「未接続」のまま動く (推測で URL を組み立てない)。
 #
-# 公開トンネル / Viewer / *_PUBLIC_URL は設定しない。待受は loopback のみ。
+# 待受は loopback のみ (BREVIARIUM_HOST)。Internal 公開は同じ機械の Cloudflare Tunnel が
+# https://br${DOMAIN_ROOT} を http://127.0.0.1:4370 へ Host を保持して転送し、Cloudflare Access の
+# Allow ポリシーで利用者を絞る。Breviarium は Access の JWT を検証できた要求だけを閲覧専用 (GET/HEAD) で通す。
+#   - 公開 Host は Ex の global.env.LUDIARS_ALLOWED_HOSTS を受け取る (ここで上書きしない、required_env に宣言)。
+#   - 公開 Origin は BREVIARIUM_PUBLIC_URL (frontend_url と同じ anchor)。要求 Host が同じときだけ許可する。
+#   - CF Access の team / AUD はここに書かない。Ex のサービス設定
+#     (runtime-config の {cloudflareAccess: {teamDomain, audience}} → EXCUBITOR_SERVICE_CONFIG_JSON) か、
+#     BREVIARIUM_CF_ACCESS_TEAM_DOMAIN (<team>.cloudflareaccess.com、スキームなし) と
+#     BREVIARIUM_CF_ACCESS_AUD (64 桁 hex) の env で両方渡す。未設定なら公開要求は 503、片方だけなら起動しない。
+#   - 公開をやめるときは BREVIARIUM_PUBLIC_URL と Access 設定を外して再起動する (loopback のみに戻る)。
+# 詳細: spec/feature/web-entrance.md
 services:
   - code: breviarium
     name: Breviarium (プロジェクト状態のエグゼクティブサマリー)
@@ -17,8 +27,8 @@ services:
     project_code: Br
     component: backend
     port: 4370
-    # Web 入口 (loopback のみ。公開 URL は持たない)。
-    frontend_url: http://127.0.0.1:4370/
+    # Web 入口 (Cloudflare Tunnel + Access 越しの公開 URL)。ローカルからは http://127.0.0.1:4370/ で全操作できる。
+    frontend_url: &br_public_url https://br${DOMAIN_ROOT}
     repo: LUDIARS/Breviarium
     runtime: node
     cwd: ${ARS_ROOT}/Breviarium
@@ -35,6 +45,8 @@ services:
       NODE_ENV: production
       BREVIARIUM_HOST: 127.0.0.1
       BREVIARIUM_PORT: "4370"
+      # Ex のフロント入口とバックエンドの公開 Origin は同じ URL を正本にする。
+      BREVIARIUM_PUBLIC_URL: *br_public_url
       # 登録台帳とスナップショット。data/ は .gitignore 済み。消せば初期化される。
       BREVIARIUM_DATA_DIR: ${ARS_ROOT}/Breviarium/data
       BREVIARIUM_SOURCE_TIMEOUT_MS: "5000"
@@ -43,7 +55,9 @@ services:
       # 定期更新は既定で無効 (0)。有効にするときだけ 60 以上の秒数を入れる。
       BR_REFRESH_INTERVAL_SEC: "0"
     required_env:
+      - LUDIARS_ALLOWED_HOSTS
       - BREVIARIUM_HOST
+      - BREVIARIUM_PUBLIC_URL
       - BREVIARIUM_PORT
       - BREVIARIUM_DATA_DIR
     provides:
