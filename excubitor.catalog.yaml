@@ -1,0 +1,20 @@
+# Excubitor catalog fragment -- Breviarium (サービス所有 catalog)。
+services:
+  - code: breviarium
+    name: Breviarium (Breviarium (Br): executive summary of LUDIARS project state)
+    tier: personal
+    project_code: breviarium
+    component: backend
+    port: 4370
+    repo: LUDIARS/Breviarium
+    runtime: node
+    cwd: ${ARS_ROOT}/Breviarium
+    command: npm run dev
+    autostart: false
+    restart_policy: "no"
+    health:
+      type: http
+      url: http://localhost:4370/health
+      interval_sec: 30
+    provides:
+      BREVIARIUM_URL: http://${host}:${port}
