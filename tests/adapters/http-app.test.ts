@@ -65,13 +65,17 @@ describe('refresh and overview API', () => {
   it('refreshes the requested sources and serves the overview from snapshots', async () => {
     const { app, sources } = await appWithProject();
     const before = JSON.parse((await app.handle(req('GET', '/api/projects/Br/overview'))).body) as { staleSourceCount: number };
-    assert.equal(before.staleSourceCount, 12);
+    assert.equal(before.staleSourceCount, 13);
     const refreshed = await app.handle(req('POST', '/api/projects/Br/refresh', { sources: ['git', 'praeforma'] }));
     assert.equal(refreshed.status, 200);
     assert.equal(sources.git.calls + sources.praeforma.calls, 2);
     assert.equal(sources.elegantia.calls, 0);
-    const overview = JSON.parse((await app.handle(req('GET', '/api/projects/Br/overview'))).body) as { stages: { id: string; state: string }[]; sources: { source: string; dataFetchedAt: string | null }[] };
-    assert.equal(overview.stages.length, 9);
+    const overview = JSON.parse((await app.handle(req('GET', '/api/projects/Br/overview'))).body) as {
+      workflow: { lifecycle: { kind: string }; startup: { stages: unknown[] }; loop: { stages: unknown[] }; analyze: { items: unknown[] } };
+      sources: { source: string; dataFetchedAt: string | null }[];
+    };
+    assert.equal(overview.workflow.lifecycle.kind, 'startup');
+    assert.deepEqual([overview.workflow.startup.stages.length, overview.workflow.loop.stages.length, overview.workflow.analyze.items.length], [2, 4, 3]);
     assert.equal(overview.sources.find((s) => s.source === 'git')?.dataFetchedAt, NOW);
     assert.equal((await app.handle(req('GET', '/api/projects/Br/overview'))).status, 200);
     assert.equal(sources.git.calls, 1);
@@ -109,13 +113,46 @@ describe('pages', () => {
     assert.doesNotMatch(page.body, /<script>/);
   });
 
-  it('lists projects with the stage bar and class chips', async () => {
+  it('lists projects with the lifecycle badge, the three phase bars and class chips', async () => {
     const { app } = await appWithProject();
     await app.handle(req('POST', '/api/projects/Br/refresh', {}));
     const res = await app.handle(req('GET', '/'));
-    assert.match(res.body, /class="stage-bar"/);
-    assert.match(res.body, /S8/);
+    assert.match(res.body, /状態: <span class="badge lifecycle lc-sprint">スプリント 1 週目 \(2 週\)<\/span>/);
+    assert.match(res.body, /<ol class="phase-bar" aria-label="スタートアップ"><li class="st-done" title="提起 → MVP: 完了"/);
+    assert.match(res.body, /<li class="st-in-progress" title="実装 \/ レビュー \(Do\): 進行中" aria-label="実装 \/ レビュー \(Do\): 進行中">D<\/li>/);
+    assert.match(res.body, /<li class="an-late" title="Pf UX 準拠レビュー: 遅れ \(スプリント開始前の解析\)"/);
     assert.match(res.body, /Elegantia <span class="grade g-B">B<\/span>/);
+    assert.doesNotMatch(res.body, /S8|stage-bar/);
+  });
+
+  it('shows the startup checklist, the PDCA loop with its metrics and the analyses on the project page', async () => {
+    const { app } = await appWithProject();
+    await app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    const body = (await app.handle(req('GET', '/projects/Br'))).body;
+    assert.match(body, /状態: <span class="badge lifecycle lc-sprint">スプリント 1 週目 \(2 週\)<\/span> <span class="small muted">自動判定<\/span>/);
+    assert.match(body, /<h2>スタートアップ<\/h2>/);
+    assert.match(body, /<li class="ok"><strong>済<\/strong> Revisor 登録/);
+    assert.match(body, /<h2>スプリント \(PDCA ループ\)<\/h2><p><strong>Sprint 12<\/strong>/);
+    assert.match(body, /<strong>実装 \/ レビュー \(Do\)<\/strong> — <span>進行中<\/span>/);
+    assert.match(body, /デイリーの動き \(直近のタスク更新からの経過日数\): <strong>—<\/strong>/);
+    assert.match(body, /完成の定義: Revisor のマージ \(Test OK\)/);
+    assert.match(body, /<h2>アナライズ \(助言\)<\/h2>/);
+    assert.match(body, /<td>Pf UX 準拠レビュー<\/td><td><time[^>]*>[^<]*<\/time><\/td><td>遅れ \(スプリント開始前の解析\)<\/td>/);
+  });
+
+  it('saves a lifecycle override from the edit form and shows it as set by hand', async () => {
+    const { app } = await appWithProject();
+    const page = (await app.handle(req('GET', '/projects/Br'))).body;
+    assert.match(page, /<label for="edit-lc">状態の上書き \(任意\)<select id="edit-lc" name="lifecycleOverride"><option value="" selected>自動判定/);
+    const values = { name: 'Breviarium', repoPath: 'E:/Work/Breviarium', classification: 'internal', githubRepo: 'LUDIARS/Breviarium', lifecycleOverride: 'operating' };
+    const saved = await app.handle(req('POST', '/projects/Br', form(values), 'application/x-www-form-urlencoded'));
+    assert.equal(saved.headers['location'], '/projects/Br?notice=saved');
+    const body = (await app.handle(req('GET', '/projects/Br'))).body;
+    assert.match(body, /<span class="badge lifecycle lc-operating">運用中<\/span> <span class="small muted">手動設定 \(自動判定は スタートアップ\)<\/span>/);
+    assert.match((await app.handle(req('GET', '/'))).body, /<span class="badge lifecycle lc-operating">運用中<\/span> <span class="small muted">\(手動設定\)<\/span>/);
+    assert.match(body, /<option value="operating" selected>運用中 \(手動\)<\/option>/);
+    const refused = await app.handle(req('POST', '/projects/Br', form({ ...values, lifecycleOverride: 'done' }), 'application/x-www-form-urlencoded'));
+    assert.equal(refused.headers['location'], '/projects/Br?error=invalid_binding');
   });
 
   it('escapes project and source text on the detail page', async () => {
@@ -170,9 +207,11 @@ describe('summary exports', () => {
       assert.doesNotMatch(body, /secret-team/);
       assert.doesNotMatch(body, /cannot change to/);
     }
-    const summary = JSON.parse(json.body) as { format: string; stages: unknown[]; inspections: unknown[] };
+    const summary = JSON.parse(json.body) as { format: string; version: number; workflow: { startup: { checklist: unknown[] }; loop: { stages: unknown[] } }; inspections: unknown[] };
     assert.equal(summary.format, 'breviarium-summary');
-    assert.equal(summary.stages.length, 9);
+    assert.equal(summary.version, 2);
+    assert.equal(summary.workflow.startup.checklist.length, 5);
+    assert.equal(summary.workflow.loop.stages.length, 4);
     assert.ok(summary.inspections.length >= 15);
     assert.equal((await app.handle(req('GET', '/projects/Zz/summary.json'))).status, 404);
   });
@@ -190,6 +229,7 @@ describe('health', () => {
     assert.equal(body.sources['praeforma'], 'configured');
     assert.equal(body.sources['elegantia'], 'not_connected');
     assert.equal(body.sources['actio'], 'not_connected');
+    assert.equal(body.sources['excubitor'], 'not_connected');
     assert.equal(body.refresh.periodic, 'disabled');
     assert.doesNotMatch(res.body, /8889/);
   });
@@ -210,6 +250,14 @@ describe('health', () => {
     const res = await registerHealthRoute(createApp(deps), describeHealth(config, NOW)).handle(req('GET', '/health'));
     assert.equal((JSON.parse(res.body) as { sources: Record<string, string> }).sources['actio'], 'configured');
     assert.doesNotMatch(res.body, /3000/);
+  });
+
+  it('reports the excubitor source as configured from EXCUBITOR_URL without the URL', async () => {
+    const { deps } = testDeps();
+    const config = loadConfig({ BREVIARIUM_DATA_DIR: 'data', BREVIARIUM_HOST: '127.0.0.1', BREVIARIUM_PORT: '4370', EXCUBITOR_URL: 'http://127.0.0.1:17332' });
+    const res = await registerHealthRoute(createApp(deps), describeHealth(config, NOW)).handle(req('GET', '/health'));
+    assert.equal((JSON.parse(res.body) as { sources: Record<string, string> }).sources['excubitor'], 'configured');
+    assert.doesNotMatch(res.body, /17332/);
   });
 
   it('reports whether Cloudflare Access is configured without the team, AUD or public URL', async () => {
@@ -261,6 +309,34 @@ describe('Cloudflare Access viewer', () => {
     assert.equal((await app.handle(viewerGet('/projects/Br/summary.json'))).status, 200);
     assert.equal((await app.handle(viewerGet('/api/projects'))).status, 200);
     assert.equal((await app.handle(viewerGet('/api/projects/Br/overview'))).status, 200);
+  });
+});
+
+describe('workflow in the summary exports', () => {
+  it('writes the lifecycle, startup, PDCA loop and analyses into summary.md instead of the old stage table', async () => {
+    const { app } = await appWithProject();
+    await app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    const md = (await app.handle(req('GET', '/projects/Br/summary.md'))).body;
+    assert.match(md, /## 状態\n\n\*\*スプリント 1 週目 \(2 週\)\*\* \(自動判定\)/);
+    assert.match(md, /## スタートアップ\n\n\| 段 \| 状態 \| 根拠 \| 証跡の日時 \|/);
+    assert.match(md, /\| Revisor 登録 \| 済 \| LUDIARS\/Breviarium は Revisor に登録あり \|/);
+    assert.match(md, /## スプリント \(PDCA ループ\)\n\nスプリント: Sprint 12 \(KonbiniDominant、2026-09-22〜2026-10-05\)/);
+    assert.match(md, /\| 実装 \/ レビュー \(Do\) \| 進行中 \| 遅れ \(消化 29% \/ 経過 31%\)/);
+    assert.match(md, /完成の定義: Revisor のマージ \(Test OK\)/);
+    assert.match(md, /## アナライズ \(助言\)/);
+    assert.match(md, /\| Pf UX 準拠レビュー \| [^|]+ \| 遅れ \(スプリント開始前の解析\) \| — \|/);
+    assert.doesNotMatch(md, /## ワークフロー|## 現在の段階|S8/);
+  });
+
+  it('writes the same workflow into summary.json', async () => {
+    const { app } = await appWithProject();
+    await app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    const summary = JSON.parse((await app.handle(req('GET', '/projects/Br/summary.json'))).body) as {
+      workflow: { lifecycle: { kind: string; label: string }; analyze: { items: { id: string; timing: string }[] }; loop: { definitionOfDone: string } };
+    };
+    assert.deepEqual({ kind: summary.workflow.lifecycle.kind, label: summary.workflow.lifecycle.label }, { kind: 'sprint', label: 'スプリント 1 週目 (2 週)' });
+    assert.deepEqual(summary.workflow.analyze.items.map((i) => i.timing), ['current', 'current', 'late']);
+    assert.equal(summary.workflow.loop.definitionOfDone, 'Revisor のマージ (Test OK)');
   });
 });
 

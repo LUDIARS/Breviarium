@@ -69,3 +69,8 @@ export function jstDate(iso: string | null | undefined): string | null {
   const ms = Date.parse(iso);
   return Number.isNaN(ms) ? null : new Date(ms + JST_OFFSET_MS).toISOString().slice(0, 10);
 }
+
+/** The instant (UTC ISO) a JST calendar day `YYYY-MM-DD` begins: 00:00 JST, i.e. 15:00 UTC the day before. */
+export function jstDayStart(date: string): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) - JST_OFFSET_MS).toISOString();
+}

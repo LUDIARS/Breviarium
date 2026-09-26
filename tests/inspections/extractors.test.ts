@@ -13,9 +13,19 @@ import { SHA } from '../support/fixtures.ts';
 const T = '2026-09-20T00:00:00.000Z';
 
 describe('git extractor', () => {
-  it('reads sha, commit time, branch and tag count', () => {
-    const r = extractGitEvidence({ head: `${SHA}\n2026-09-25T10:00:00+09:00\n`, branch: 'main\n', tags: 'v0.1.0\nv0.2.0\n' });
-    assert.deepEqual(r, { ok: true, value: { headSha: SHA, headCommittedAt: '2026-09-25T01:00:00.000Z', branch: 'main', tagCount: 2 } });
+  it('reads sha, commit time, branch, tag count and the newest v tag (tags come newest first)', () => {
+    const r = extractGitEvidence({ head: `${SHA}\n2026-09-25T10:00:00+09:00\n`, branch: 'main\n', tags: 'v0.2.0\nv0.1.0\n' });
+    assert.deepEqual(r, { ok: true, value: { headSha: SHA, headCommittedAt: '2026-09-25T01:00:00.000Z', branch: 'main', tagCount: 2, latestVersionTag: 'v0.2.0' } });
+  });
+
+  it('takes only `v` plus a digit as a release tag', () => {
+    const tagged = (tags: string) => {
+      const r = extractGitEvidence({ head: `${SHA}\n${T}`, branch: 'main', tags });
+      return r.ok ? r.value.latestVersionTag : 'refused';
+    };
+    assert.equal(tagged('mvp\nvendor-drop\nv1.0.0\nv0.9.0\n'), 'v1.0.0');
+    assert.equal(tagged('mvp\nvendor-drop\n'), null);
+    assert.equal(tagged(''), null);
   });
 
   it('treats a detached HEAD as no branch and refuses unreadable output', () => {

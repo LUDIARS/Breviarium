@@ -31,6 +31,21 @@ describe('registration rules', () => {
     for (const bad of ['-x', 'a b', 'a/b', '../x', 'x'.repeat(65)]) assert.equal(validateBindings({ anatomiaProject: bad }).ok, false, bad);
   });
 
+  it('accepts an Excubitor service code binding and refuses codes that are not plain names', () => {
+    assert.deepEqual(validateBindings({ excubitorService: ' breviarium ' }), { ok: true, value: { excubitorService: 'breviarium' } });
+    for (const bad of ['-x', 'a b', 'a/b', 'x'.repeat(65)]) assert.equal(validateBindings({ excubitorService: bad }).ok, false, bad);
+  });
+
+  it('keeps a lifecycle override only as one of the four lifecycles; empty means judged automatically', () => {
+    for (const kind of ['startup', 'sprint', 'released', 'operating']) {
+      assert.deepEqual(validateBindings({ lifecycleOverride: kind }), { ok: true, value: { lifecycleOverride: kind } });
+    }
+    assert.deepEqual(validateBindings({ lifecycleOverride: '' }), { ok: true, value: {} });
+    for (const bad of ['done', 'Sprint', 'S8']) assert.equal(validateBindings({ lifecycleOverride: bad }).ok, false, bad);
+    const updated = planUpdate([project()], 'Br', { bindings: { lifecycleOverride: 'released' } }, NOW);
+    assert.equal(updated.ok && updated.value.bindings.lifecycleOverride, 'released');
+  });
+
   it('validates bindings and treats empty values as unbound', () => {
     const ok = validateBindings({ praeformaProjectId: '01M2RZXD2WVGQP0NKXEE9WRYZ1', githubRepo: 'LUDIARS/Breviarium', voluptasPath: 'answers\\team', elegantiaProduct: '' });
     assert.deepEqual(ok, { ok: true, value: { praeformaProjectId: '01M2RZXD2WVGQP0NKXEE9WRYZ1', githubRepo: 'LUDIARS/Breviarium', voluptasPath: 'answers/team' } });

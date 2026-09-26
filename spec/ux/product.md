@@ -8,7 +8,7 @@
 
 ## 目標体験
 
-LUDIARS の各プロジェクトが「ワークフローのどこにいて」「どの検査でどう評価されたか」を、
+LUDIARS の各プロジェクトが「どの状態 (スタートアップ / スプリント N 週目 / リリース / 運用) で PDCA ループのどこにいて」「どの検査でどう評価されたか」を、
 各ツールを巡回せずに一枚で把握する。表示は常に Breviarium 自身のキャッシュ (スナップショット) から出し、
 いつ取得した情報か・古いかどうかが常に見える。更新は明示操作 (または任意の定期更新) で行う。
 
@@ -16,7 +16,7 @@ LUDIARS の各プロジェクトが「ワークフローのどこにいて」「
 
 | ID | 価値 | 主な所有ドメイン |
 |---|---|---|
-| BR-UX-1 | 登録した全プロジェクトが「LUDIARS ワークフローのどの段階にいるか」を一覧で分かる | project-registry, workflow-stages |
+| BR-UX-1 | 登録した全プロジェクトの状態 (スタートアップ / スプリント N 週目 / リリース / 運用) と PDCA ループの位置 (スタートアップ 2 段・ループ 4 段・アナライズ 3 項目の遅れ) が一覧で分かる | project-registry, workflow-stages |
 | BR-UX-2 | 各プロジェクトが「どの検査を受け、どのクラス評価か」を根拠 (証跡の場所・計測日時・対象 commit) 付きで分かる | inspections |
 | BR-UX-3 | 表示は常にツール側キャッシュから出る。各ソースの取得日時と鮮度が見え、更新は明示操作 (または定期) で行う | snapshots |
 | BR-UX-4 | 公開 (Internal) 前提: 秘匿語・個人データ・秘密を持たない。data/ は Git 管理外、要約は Markdown/JSON で書き出せる。Internal 公開は Cloudflare Access 検証済みの閲覧専用 (書き込みは loopback だけ) | platform-foundation, snapshots |
@@ -34,19 +34,22 @@ LUDIARS の各プロジェクトが「ワークフローのどこにいて」「
 - **スプリントは件数だけ (BR-UX-5)**: Actio の集計 (件数・スプリント名・ゴール・日付) だけを保存・表示し、タスク本文・タイトル・担当者・タスク id を持たない。
   アクティブなスプリントが無い・未接続は「—」で、消化と経過は Actio の集計日で比べる。詳細は [sprints](../feature/sprints.md)。
 - **読むだけ**: 対象リポの `spec/`・`report/` と Voluptas のデータは読むだけで書かない。Anatomia / Revisor の CLI は読み取りのサブコマンド
-  (`domains program` / `pr list` / `pr show`) だけを `execFile` の引数配列で呼び (シェル補間なし)、件数・状態・日時だけを保存する
-  (ファイル一覧・PR 本文・ローカルパスを持たない)。
+  (`domains program` / `repo list` / `pr list` / `pr show` / `version show`) だけを `execFile` の引数配列で呼び (シェル補間なし)、
+  件数・状態・日時・版だけを保存する (ファイル一覧・PR 本文・ローカルパスを持たない)。Excubitor はサービス一覧を読むだけで、
+  サービスの有無・state・autostart だけを保存する (host・pid・port・catalog を持たない)。
+- **推測しない (BR-UX-1)**: 状態とループは証跡があるときだけ進める。Excubitor 未取得では「運用中」にせず、Actio の集計に無い指標
+  (デイリーの動き・バックログ整理度) は「—」と理由を出す。アナライズは助言で、状態・段を変えない。
 - **Internal 公開 (BR-UX-4)**: `https://br${DOMAIN_ROOT}` (Cloudflare Tunnel → loopback) は Cloudflare Access の JWT を
   検証できた要求だけを通し、閲覧専用 (GET / HEAD) にする。画面にも登録・更新・編集・削除を出さない。JWT なしで開くモードは作らず、
   Host 許可を Origin 許可へ広げない。詳細は [web-entrance](../feature/web-entrance.md)。
 
 ## 画面の入口
 
-- `GET /` 全プロジェクトの段階バー + 検査クラスのチップ + スプリントのチップ + 鮮度。プロジェクト登録フォーム。
-- `GET /projects/:code` 段階タイムライン・検査表・証跡・スプリント区画・スナップショット鮮度・更新ボタン・登録編集。
+- `GET /` 全プロジェクトの状態バッジ + 3 フェーズの小さな進捗 (スタートアップ 2 段 / ループ 4 段 / アナライズ 3 項目の遅れ) + 検査クラスのチップ + スプリントのチップ + 鮮度。プロジェクト登録フォーム。
+- `GET /projects/:code` 状態と根拠・スタートアップ (チェックリスト)・PDCA ループ (4 段 + 2 指標)・アナライズ (3 項目)・検査表・証跡・スプリント区画・スナップショット鮮度・更新ボタン・登録編集 (状態の上書きを含む)。
 - `GET /projects/:code/summary.md` / `summary.json` エグゼクティブサマリーの書き出し。
 
-詳細は [web-ui](../feature/web-ui.md)、段の判定は [workflow](../feature/workflow.md)、
+詳細は [web-ui](../feature/web-ui.md)、状態と PDCA ループの判定は [workflow](../feature/workflow.md)、
 クラス評価は [grading](../feature/grading.md)、キャッシュは [snapshots](../feature/snapshots.md)、
 スプリントは [sprints](../feature/sprints.md)。
 

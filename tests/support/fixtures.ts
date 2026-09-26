@@ -10,6 +10,7 @@ import type {
   DomainReviewsEvidence,
   ElegantiaEvidence,
   EvidenceBundle,
+  ExcubitorEvidence,
   GitEvidence,
   PraeformaAcceptanceEvidence,
   PraeformaEvidence,
@@ -23,7 +24,6 @@ import type { Clock } from '../../src/shared/runtime.ts';
 import { createRefresher } from '../../src/snapshots/application/refresh-use-case.ts';
 import type { SourceId, SourceOutcome } from '../../src/snapshots/domain/model.ts';
 import type { SourceAdapter, SourceRegistry } from '../../src/snapshots/ports.ts';
-import { DEFAULT_STALE_POLICY } from '../../src/workflow/domain/staleness.ts';
 
 export const NOW = '2026-09-26T00:00:00.000Z';
 export const DAY = 86_400_000;
@@ -53,7 +53,7 @@ export function project(overrides: Partial<Project> = {}): Project {
 export const SHA = 'a'.repeat(40);
 
 export function git(overrides: Partial<GitEvidence> = {}): GitEvidence {
-  return { headSha: SHA, headCommittedAt: daysAgo(1), branch: 'main', tagCount: 1, ...overrides };
+  return { headSha: SHA, headCommittedAt: daysAgo(1), branch: 'main', tagCount: 1, latestVersionTag: null, ...overrides };
 }
 
 export function praeforma(overrides: Partial<PraeformaEvidence> = {}): PraeformaEvidence {
@@ -168,10 +168,15 @@ export function anatomiaCoverage(overrides: Partial<AnatomiaCoverageEvidence> = 
   };
 }
 
-/** Revisor: the newest merge passed the Anatomia gate with one advisory (B); the worst band is high (C). */
+/**
+ * Revisor: registered, not released yet (version file uninitialized); the newest merge passed the
+ * Anatomia gate with one advisory (B); the worst band is high (C).
+ */
 export function revisor(overrides: Partial<RevisorEvidence> = {}): RevisorEvidence {
   return {
     repository: 'LUDIARS/Breviarium',
+    registered: true,
+    localVersion: 'uninitialized',
     merged: [
       { number: 12, mergedAt: daysAgo(0.5), mergeCommit: 'b'.repeat(40), anatomiaGate: { status: 'passed', advisoryCount: 1 }, mergeRisk: { band: 'low', score: 14 } },
       { number: 11, mergedAt: daysAgo(1), mergeCommit: null, anatomiaGate: { status: 'passed', advisoryCount: 2 }, mergeRisk: { band: 'high', score: 48 } },
@@ -183,6 +188,11 @@ export function revisor(overrides: Partial<RevisorEvidence> = {}): RevisorEviden
 /** Cc domain-review posts: three posts, the newest five days ago (within the 30-day threshold). */
 export function domainReviews(overrides: Partial<DomainReviewsEvidence> = {}): DomainReviewsEvidence {
   return { code: 'Br', postCount: 3, latestPostedAt: daysAgo(5), ...overrides };
+}
+
+/** Excubitor: the service is in the catalog, stopped and not on autostart (not operated). */
+export function excubitor(overrides: Partial<ExcubitorEvidence> = {}): ExcubitorEvidence {
+  return { service: 'br', found: true, state: 'stopped', autostart: false, ...overrides };
 }
 
 /** Actio's contract example (`GET /api/projects/cc/KD/sprints`), as Actio sends it. */
@@ -286,6 +296,7 @@ export function fullBundle(overrides: Partial<EvidenceBundle> = {}): EvidenceBun
     domainReviews: domainReviews(),
     revisor: revisor(),
     actio: actio(),
+    excubitor: excubitor(),
     ...overrides,
   };
 }
@@ -318,6 +329,7 @@ const EVIDENCE: Readonly<Record<SourceId, unknown>> = {
   'concordia-reviews': domainReviews(),
   revisor: revisor(),
   actio: actio(),
+  excubitor: excubitor(),
 };
 
 export function okSources(): Record<SourceId, SourceAdapter & { calls: number }> {
@@ -335,6 +347,7 @@ export function okSources(): Record<SourceId, SourceAdapter & { calls: number }>
     'concordia-reviews': make('concordia-reviews'),
     revisor: make('revisor'),
     actio: make('actio'),
+    excubitor: make('excubitor'),
   };
 }
 
@@ -345,7 +358,7 @@ export function testDeps(sources: SourceRegistry = okSources()) {
   const refresh = createRefresher({ projects, snapshots, sources, clock });
   const deps: AppDeps = {
     registry: { projects, cleanup: snapshots, clock },
-    overview: { projects, snapshots, clock, policy: { stale: DEFAULT_STALE_POLICY, snapshotMaxAgeMs: 24 * 3_600_000 } },
+    overview: { projects, snapshots, clock, policy: { snapshotMaxAgeMs: 24 * 3_600_000 } },
     refresh,
   };
   return { deps, projects, snapshots, clock, sources };

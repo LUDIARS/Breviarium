@@ -16,7 +16,8 @@ Breviarium の一覧と詳細で読めるようにする。**スプリントの�
 |---|---|
 | Terpsichore「チームを回す」 | 検査 `terpsichore/sprint-health` (ツールチップ `Terpsichore`)、一覧のスプリントチップ、詳細の「スプリント (Terpsichore: チームを回す)」区画、summary のスプリント節 |
 
-ワークフローの段 (S1〜S8 + 定期) には結び付けない (段判定は `actio` の証跡を読まない)。
+このクラス (terpsichore/sprint-health) はワークフローの段を動かさない。一方、状態 (スプリント N 週目) と PDCA ループは
+同じ `actio` の証跡・同じ消化率 / 経過率を枠として使う ([workflow](workflow.md))。
 
 ## ソース `actio`
 

@@ -1,6 +1,6 @@
 // @implements SPEC-br-architecture
 import { MERGED_PR_LIMIT } from '../../inspections/domain/merged-prs.ts';
-import { extractRevisorEvidence, latestMergedPrNumbers } from '../../inspections/extractors/revisor.ts';
+import { extractRevisorEvidence, latestMergedPrNumbers, revisorLocalVersion, revisorRegistration } from '../../inspections/extractors/revisor.ts';
 import type { Project } from '../../registry/domain/model.ts';
 import type { SourceOutcome } from '../../snapshots/domain/model.ts';
 import type { SourceAdapter } from '../../snapshots/ports.ts';
@@ -39,9 +39,24 @@ async function showEach(run: CliRunner, numbers: readonly number[]): Promise<unk
 }
 
 /**
- * Revisor CLI: `pr list --repository <owner/name> --json`, then `pr show <n> --json` for the newest
- * merged PRs, kept as their Anatomia gate and merge-risk band only. Without a configured CLI or a
- * bound GitHub repository the source is not connected; any failure keeps the previous data.
+ * `version show --repo <checkout>`: Revisor exits with an error when the checkout's `.revisor-version`
+ * is not tracked or not managed, which only means "no Revisor version to read" (null, and the release
+ * falls back to the git tags). A timeout or a missing CLI is still a failure of the source.
+ */
+async function showVersion(run: CliRunner, repoPath: string): Promise<string | null> {
+  try {
+    return revisorLocalVersion(await run(['version', 'show', '--repo', repoPath]));
+  } catch (error) {
+    if (error instanceof CliRunError && error.failure === 'exit') return null;
+    throw error;
+  }
+}
+
+/**
+ * Revisor CLI: `repo list --json` (registration), `pr list --repository <owner/name> --json`, then
+ * `pr show <n> --json` for the newest merged PRs (kept as their Anatomia gate and merge-risk band only),
+ * and `version show --repo <checkout>` (release version). Without a configured CLI or a bound GitHub
+ * repository the source is not connected; any failure keeps the previous data.
  */
 export function createRevisorSource(run: CliRunner | undefined): SourceAdapter {
   return {
@@ -52,10 +67,14 @@ export function createRevisorSource(run: CliRunner | undefined): SourceAdapter {
       if (!repository) return notConnected('bindings.githubRepo が未登録');
       const subject = `revisor:${repository}`;
       try {
+        const registered = revisorRegistration(parseCliJson(await run(['repo', 'list', '--json']), 'Revisor CLI (repo list)'), repository);
+        if (!registered.ok) return fromResult(registered, subject);
         const listing = parseCliJson(await run(['pr', 'list', '--repository', repository, '--json']), 'Revisor CLI (pr list)');
         const numbers = latestMergedPrNumbers(listing, repository, MERGED_PR_LIMIT);
         if (!numbers.ok) return fromResult(numbers, subject);
-        return fromResult(extractRevisorEvidence(repository, await showEach(run, numbers.value)), subject);
+        const shows = await showEach(run, numbers.value);
+        const localVersion = await showVersion(run, project.repoPath);
+        return fromResult(extractRevisorEvidence(repository, shows, { registered: registered.value, localVersion }), subject);
       } catch (error) {
         return failed(explain(error));
       }

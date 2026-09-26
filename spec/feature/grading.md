@@ -61,7 +61,7 @@ Revisor の PR は `pr list --repository <bindings.githubRepo> --json` から st
 ## terpsichore/sprint-health (比の閾値を使わない唯一の検査)
 
 価値: BR-UX-5。詳細・契約・表示は [sprints](sprints.md)。関数は `gradeSprintHealth(consumption, elapsed, overdue)` (クラス) と
-`inspectTerpsichore(actio)` (チームの集約)。ワークフローの段には結び付けない。
+`inspectTerpsichore(actio)` (チームの集約)。クラスはワークフローの段を動かさない (ループの Do 段は同じ消化率 / 経過率を別に読む、[workflow](workflow.md))。
 
 | クラス | 差 = 消化率 − 経過率 (1e-6 に丸める) |
 |---|---|

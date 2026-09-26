@@ -4,6 +4,14 @@ export type Classification = 'public' | 'internal';
 
 export const CLASSIFICATIONS: readonly Classification[] = ['public', 'internal'];
 
+/**
+ * The lifecycle a project is in (spec/feature/workflow.md). The workflow judges it from the evidence;
+ * the registry only keeps an optional manual override, so the vocabulary lives with the registry.
+ */
+export const LIFECYCLE_KINDS = ['startup', 'sprint', 'released', 'operating'] as const;
+
+export type LifecycleKind = (typeof LIFECYCLE_KINDS)[number];
+
 /** Where each source finds this project. Every key is optional; an absent key leaves that source not connected. */
 export interface ProjectBindings {
   readonly praeformaProjectId?: string;
@@ -14,9 +22,22 @@ export interface ProjectBindings {
   readonly actioProjectCode?: string;
   /** Anatomia project id (`--project`), when it differs from the lower-case registered code. */
   readonly anatomiaProject?: string;
+  /** Excubitor service code, when it differs from the lower-case registered code. */
+  readonly excubitorService?: string;
+  /** Manual lifecycle; absent means it is judged from the evidence. */
+  readonly lifecycleOverride?: LifecycleKind;
 }
 
-export const BINDING_KEYS = ['praeformaProjectId', 'elegantiaProduct', 'voluptasPath', 'githubRepo', 'actioProjectCode', 'anatomiaProject'] as const;
+export const BINDING_KEYS = [
+  'praeformaProjectId',
+  'elegantiaProduct',
+  'voluptasPath',
+  'githubRepo',
+  'actioProjectCode',
+  'anatomiaProject',
+  'excubitorService',
+  'lifecycleOverride',
+] as const;
 
 export type BindingKey = (typeof BINDING_KEYS)[number];
 

@@ -7,8 +7,7 @@ import { gradeSprintHealth, sprintMargin } from '../../src/inspections/domain/sp
 import { inspectTerpsichore } from '../../src/inspections/domain/sprint-inspections.ts';
 import { buildSprintBoard, elapsedRatio, sprintProgress } from '../../src/inspections/domain/sprint-progress.ts';
 import { extractActioEvidence } from '../../src/inspections/extractors/actio.ts';
-import { evaluateStages } from '../../src/workflow/domain/stage-evaluation.ts';
-import { DEFAULT_STALE_POLICY } from '../../src/workflow/domain/staleness.ts';
+import { evaluateSprintLoop } from '../../src/workflow/domain/sprint-loop.ts';
 import { actio, actioResponse, actioTeam, activeSprint, fullBundle, NOW, sprintTasks } from '../support/fixtures.ts';
 
 function health(inspections: readonly Inspection[]): Inspection {
@@ -174,8 +173,12 @@ describe('terpsichore/sprint-health inspection', () => {
     assert.equal(health(inspectTerpsichore(counted([ahead, idle]))).grade, 'A');
   });
 
-  it('is part of the inspections but never moves a workflow stage', () => {
-    assert.equal(health(buildInspections(fullBundle())).grade, 'C');
-    assert.deepEqual(evaluateStages(fullBundle(), DEFAULT_STALE_POLICY, NOW), evaluateStages(fullBundle({ actio: null }), DEFAULT_STALE_POLICY, NOW));
+  it('is part of the inspections and frames the PDCA loop with the same sprint and progress', () => {
+    const bundle = fullBundle();
+    assert.equal(health(buildInspections(bundle)).grade, 'C');
+    const loop = evaluateSprintLoop(bundle, NOW);
+    const board = buildSprintBoard(bundle.actio);
+    assert.equal(loop.sprint?.name, board?.teams[0]?.active?.name);
+    assert.match(loop.stages[1]?.reasons[0] ?? '', /消化 29% \/ 経過 31%/);
   });
 });

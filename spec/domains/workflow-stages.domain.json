@@ -1,6 +1,6 @@
 {
   "name": "workflow-stages",
-  "description": "ワークフロー段判定 (business): LUDIARS ワークフローの固定 8 段 + 定期レビューの定義と、証跡スナップショットから段状態 (not-started / in-progress / done / stale) を決める純関数 (定期レビューは Cc の domain_review とドメインレビュー投稿の最新 posted_at、古さは reviewStaleDays) を所有する。ソース取得は持たない。",
+  "description": "ワークフロー (business): LUDIARS の PDCA / スクラムのワークフローを所有する。サービスの状態 (startup / sprint N 週目 / released / operating、登録の lifecycleOverride が優先)、フェーズ 1 スタートアップ (提起 → MVP と、Pf・Anatomia・Cc・Revisor・Actio 登録の整備チェックリスト)、フェーズ 2 スプリントの PDCA ループ (Plan / Do / Check / Act の 4 段と daily・refinement の 2 指標、Actio のアクティブなスプリントの中だけで判定)、フェーズ 3 アナライズ (コンテンツ解析・品質評価・Pf UX 準拠レビューの最新解析とスプリント開始に対する遅れ、終了時の推奨。状態を変えない助言) を、証跡スナップショットから決める純関数 (resolveLifecycle / evaluateStartup / evaluateSprintLoop / evaluateAnalyze) として持つ。ソース取得は持たない。",
   "presetRules": [],
   "templateRules": [],
   "membership": [
@@ -9,7 +9,7 @@
     { "pathPattern": "^spec/feature/workflow\\.md$" },
     { "pathPattern": "^spec/domains/workflow-stages\\.domain\\.json$" }
   ],
-  "cardTemplate": "Summarise the \"workflow-stages\" domain: the fixed 8 LUDIARS stages plus the periodic review, and the pure rules that turn evidence snapshots into stage states with reasons and staleness (the periodic review is judged from Concordia domain-review posts and goes stale by their age).",
+  "cardTemplate": "Summarise the \"workflow-stages\" domain: the LUDIARS PDCA / scrum workflow as pure rules over evidence snapshots - the lifecycle (startup / sprint week N of M / released / operating, with a registered override), the startup phase (MVP and the five-item setup checklist), the sprint PDCA loop (plan / build / evaluate / retro judged only inside Actio's active sprint, plus the daily and refinement metrics) and the advisory analyses (content / quality / UX review, late against the sprint start, recommended at its end).",
   "specRefs": [
     "spec/ux/product.md",
     "spec/feature/workflow.md"

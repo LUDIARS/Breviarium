@@ -12,10 +12,13 @@ import composeOverviewContract from '../../contracts/compose-overview.contract.t
 import describeHealthContract from '../../contracts/describe-health.contract.ts';
 import elapsedRatioContract from '../../contracts/elapsed-ratio.contract.ts';
 import escContract from '../../contracts/esc.contract.ts';
-import evaluateStagesContract from '../../contracts/evaluate-stages.contract.ts';
+import evaluateAnalyzeContract from '../../contracts/evaluate-analyze.contract.ts';
+import evaluateSprintLoopContract from '../../contracts/evaluate-sprint-loop.contract.ts';
+import evaluateStartupContract from '../../contracts/evaluate-startup.contract.ts';
 import extractActioEvidenceContract from '../../contracts/extract-actio-evidence.contract.ts';
 import extractAnatomiaCoverageEvidenceContract from '../../contracts/extract-anatomia-coverage-evidence.contract.ts';
 import extractDomainReviewsEvidenceContract from '../../contracts/extract-domain-reviews-evidence.contract.ts';
+import extractExcubitorEvidenceContract from '../../contracts/extract-excubitor-evidence.contract.ts';
 import gradeRatioContract from '../../contracts/grade-ratio.contract.ts';
 import gradeSprintHealthContract from '../../contracts/grade-sprint-health.contract.ts';
 import inspectDomainCoverageContract from '../../contracts/inspect-domain-coverage.contract.ts';
@@ -24,7 +27,6 @@ import inspectMergeRiskContract from '../../contracts/inspect-merge-risk.contrac
 import inspectPraeformaAcceptanceContract from '../../contracts/inspect-praeforma-acceptance.contract.ts';
 import inspectTerpsichoreContract from '../../contracts/inspect-terpsichore.contract.ts';
 import inspectVerifyContract from '../../contracts/inspect-verify.contract.ts';
-import judgePeriodicReviewContract from '../../contracts/judge-periodic-review.contract.ts';
 import latestMergedPrNumbersContract from '../../contracts/latest-merged-pr-numbers.contract.ts';
 import loadConfigContract from '../../contracts/load-config.contract.ts';
 import planRegistrationContract from '../../contracts/plan-registration.contract.ts';
@@ -34,8 +36,9 @@ import readPublicOriginContract from '../../contracts/read-public-origin.contrac
 import refreshProjectContract from '../../contracts/refresh-project.contract.ts';
 import renderIndexPageContract from '../../contracts/render-index-page.contract.ts';
 import renderProjectPageContract from '../../contracts/render-project-page.contract.ts';
-import reviewStaleReasonsContract from '../../contracts/review-stale-reasons.contract.ts';
+import resolveLifecycleContract from '../../contracts/resolve-lifecycle.contract.ts';
 import toExecutiveSummaryContract from '../../contracts/to-executive-summary.contract.ts';
+import validateBindingsContract from '../../contracts/validate-bindings.contract.ts';
 import withoutGitConfigInjectionContract from '../../contracts/without-git-config-injection.contract.ts';
 import { readCloudflareAccessConfig } from '../../src/adapters/config/cloudflare-access-config.ts';
 import { loadConfig } from '../../src/adapters/config/load-config.ts';
@@ -58,8 +61,6 @@ import { inspectDomainCoverage, inspectVerify } from '../../src/inspections/doma
 import { buildInspections } from '../../src/inspections/domain/build-inspections.ts';
 import {
   type AnatomiaCoverageEvidence,
-  type ConcordiaEvidence,
-  type DomainReviewsEvidence,
   EMPTY_BUNDLE,
   type MergedPrReviewFact,
   type PraeformaAcceptanceEvidence,
@@ -76,19 +77,22 @@ import { extractActioEvidence } from '../../src/inspections/extractors/actio.ts'
 import { extractAnatomiaCoverageEvidence } from '../../src/inspections/extractors/anatomia-coverage.ts';
 import { pullRequestsFor } from '../../src/inspections/extractors/concordia.ts';
 import { extractDomainReviewsEvidence } from '../../src/inspections/extractors/concordia-reviews.ts';
+import { extractExcubitorEvidence } from '../../src/inspections/extractors/excubitor.ts';
 import { latestMergedPrNumbers } from '../../src/inspections/extractors/revisor.ts';
 import { registerProject } from '../../src/registry/application/registry-use-cases.ts';
+import { validateBindings } from '../../src/registry/domain/field-rules.ts';
 import { planRegistration } from '../../src/registry/domain/registration-rules.ts';
 import { composeOverview } from '../../src/snapshots/application/project-overview.ts';
 import { refreshProject } from '../../src/snapshots/application/refresh-use-case.ts';
 import { assessFreshness } from '../../src/snapshots/domain/freshness.ts';
 import type { SourceSnapshot } from '../../src/snapshots/domain/model.ts';
 import { applyOutcome } from '../../src/snapshots/domain/snapshot-rules.ts';
-import { evaluateStages } from '../../src/workflow/domain/stage-evaluation.ts';
-import { judgePeriodicReview } from '../../src/workflow/domain/stage-rules.ts';
-import { DEFAULT_STALE_POLICY, reviewStaleReasons } from '../../src/workflow/domain/staleness.ts';
+import { evaluateAnalyze } from '../../src/workflow/domain/analyze-phase.ts';
+import { resolveLifecycle } from '../../src/workflow/domain/lifecycle.ts';
+import { evaluateSprintLoop } from '../../src/workflow/domain/sprint-loop.ts';
+import { evaluateStartup } from '../../src/workflow/domain/startup-phase.ts';
 import { ACCESS_CONFIG, AUD, claims, NOW_MS, NOW_SEC, TEAM } from '../support/access-tokens.ts';
-import { actio, actioResponse, actioTeam, activeSprint, concordia, daysAgo, elegantia, fullBundle, NOW, project, sprintTasks, testDeps } from '../support/fixtures.ts';
+import { actio, actioResponse, actioTeam, activeSprint, elegantia, excubitor, fullBundle, git, NOW, project, revisor, sprintTasks, testDeps } from '../support/fixtures.ts';
 
 function coverageOf(classified: number, total: number): AnatomiaCoverageEvidence {
   return { project: 'x', layersDeclared: true, modules: { total: 2, classified: 1 }, symbols: { total, classified }, domainCount: 1 };
@@ -100,7 +104,7 @@ function mergedPr(number: number, day: number, anatomiaGate: Gate, band: string 
   return { number, mergedAt: `2026-09-0${day}T00:00:00.000Z`, mergeCommit: null, anatomiaGate, mergeRisk: band ? { band, score: 1 } : null };
 }
 
-const revisorOf = (...merged: MergedPrReviewFact[]): RevisorEvidence => ({ repository: 'LUDIARS/Breviarium', merged });
+const revisorOf = (...merged: MergedPrReviewFact[]): RevisorEvidence => ({ repository: 'LUDIARS/Breviarium', registered: true, localVersion: null, merged });
 const passed = (advisoryCount = 0): Gate => ({ status: 'passed', advisoryCount });
 const failedGate: Gate = { status: 'failed', advisoryCount: 0 };
 
@@ -116,7 +120,7 @@ function acceptanceOf(passedCount: number, failed: number, blocked: number, runs
 
 /** The predicates are exercised against the real rules, and against a violation, so they cannot pass vacuously. */
 describe('contract predicates hold for the rules', () => {
-  const policy = { stale: DEFAULT_STALE_POLICY, snapshotMaxAgeMs: 86_400_000 };
+  const policy = { snapshotMaxAgeMs: 86_400_000 };
   const snap: SourceSnapshot = { projectCode: 'Br', source: 'git', sourceVersion: 1, subject: 'repo:E:/Work/Breviarium', data: { headSha: 'a' }, dataFetchedAt: NOW, attemptedAt: NOW, status: 'ok', error: null };
 
   it('C-1 registration', () => {
@@ -130,12 +134,6 @@ describe('contract predicates hold for the rules', () => {
     }
     const draft = { code: 'BR', name: 'n', repoPath: 'E:/x', classification: 'public' };
     assert.equal(typeof planRegistrationContract.post({ ok: true, value: project({ code: 'BR' }) }, existing, draft), 'string');
-  });
-
-  it('C-2 stages', () => {
-    for (const bundle of [EMPTY_BUNDLE, fullBundle()]) assert.equal(evaluateStagesContract.post(evaluateStages(bundle, DEFAULT_STALE_POLICY, NOW), bundle), true);
-    const progressed = evaluateStages(fullBundle(), DEFAULT_STALE_POLICY, NOW);
-    assert.equal(typeof evaluateStagesContract.post(progressed, EMPTY_BUNDLE), 'string');
   });
 
   it('C-3 grades', () => {
@@ -393,25 +391,6 @@ describe('contract predicates hold for the rules', () => {
     assert.equal(typeof inspectPraeformaAcceptanceContract.post(inspectPraeformaAcceptance(acceptanceOf(9, 1, 0)), acceptanceOf(7, 2, 1)), 'string');
   });
 
-  it('C-33 periodic review states', () => {
-    const withReviews = (c: ConcordiaEvidence | null, r: DomainReviewsEvidence | null) => ({ ...EMPTY_BUNDLE, concordia: c, domainReviews: r });
-    const posted: DomainReviewsEvidence = { code: 'Br', postCount: 1, latestPostedAt: daysAgo(3) };
-    const off = concordia({ flags: { dddEnabled: true, testsRequired: true, domainReview: false, contractEnabled: false } });
-    for (const b of [withReviews(null, posted), withReviews(off, posted), withReviews(concordia(), null), withReviews(concordia(), { ...posted, postCount: 0, latestPostedAt: null }), withReviews(concordia(), posted)]) {
-      assert.equal(judgePeriodicReviewContract.post(judgePeriodicReview(b), b), true, JSON.stringify(b.domainReviews));
-    }
-    assert.equal(typeof judgePeriodicReviewContract.post({ state: 'done', reasons: [], evidenceAt: daysAgo(3) }, withReviews(off, posted)), 'string');
-    assert.equal(typeof judgePeriodicReviewContract.post({ state: 'done', reasons: [], evidenceAt: null }, withReviews(concordia(), posted)), 'string');
-  });
-
-  it('C-34 review staleness', () => {
-    for (const at of [null, 'junk', daysAgo(10), daysAgo(30), daysAgo(31)]) {
-      assert.equal(reviewStaleReasonsContract.post(reviewStaleReasons(at, DEFAULT_STALE_POLICY, NOW), at, DEFAULT_STALE_POLICY, NOW), true, String(at));
-    }
-    assert.equal(typeof reviewStaleReasonsContract.post([], daysAgo(40), DEFAULT_STALE_POLICY, NOW), 'string');
-    assert.equal(typeof reviewStaleReasonsContract.post(['x'], daysAgo(1), DEFAULT_STALE_POLICY, NOW), 'string');
-  });
-
   it('C-35 injected git configuration is dropped', () => {
     const env = { GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'a', GIT_CONFIG_VALUE_0: 'b', GIT_CONFIG_KEY_1: 'c', GIT_CONFIG_VALUE_1: 'd', GIT_CONFIG_GLOBAL: 'g', PATH: 'p' };
     for (const e of [env, {}, { PATH: 'p' }]) assert.equal(withoutGitConfigInjectionContract.post(withoutGitConfigInjection(e), e), true);
@@ -457,5 +436,64 @@ describe('contract predicates hold for the rules', () => {
   it('C-27 Actio code', () => {
     for (const p of [project({ bindings: {} }), project({ bindings: { actioProjectCode: 'KD' } })]) assert.equal(actioSprintsPathContract.post(actioSprintsPath(p), p), true);
     assert.equal(typeof actioSprintsPathContract.post('/api/projects/cc/Br/sprints', project({ bindings: { actioProjectCode: 'KD' } })), 'string');
+  });
+
+  it('C-38 lifecycle priority and override', () => {
+    const released = fullBundle({ revisor: revisor({ localVersion: '1.0.0' }) });
+    const operated = fullBundle({ excubitor: excubitor({ autostart: true }) });
+    const tagged = fullBundle({ revisor: null, git: git({ latestVersionTag: 'v0.2.0' }) });
+    for (const b of [EMPTY_BUNDLE, fullBundle(), released, operated, tagged, fullBundle({ excubitor: null })]) {
+      for (const override of [null, 'startup', 'operating'] as const) {
+        assert.equal(resolveLifecycleContract.post(resolveLifecycle(b, override, NOW), b, override), true, `${override} ${JSON.stringify(b.excubitor)}`);
+      }
+    }
+    assert.equal(typeof resolveLifecycleContract.post(resolveLifecycle(fullBundle(), null, NOW), operated, null), 'string');
+    assert.equal(typeof resolveLifecycleContract.post(resolveLifecycle(released, null, NOW), EMPTY_BUNDLE, null), 'string');
+    assert.equal(typeof resolveLifecycleContract.post(resolveLifecycle(EMPTY_BUNDLE, null, NOW), EMPTY_BUNDLE, 'sprint'), 'string');
+  });
+
+  it('C-39 startup checklist aggregation', () => {
+    const partial = fullBundle({ revisor: revisor({ registered: false }) });
+    for (const b of [EMPTY_BUNDLE, fullBundle(), partial]) assert.equal(evaluateStartupContract.post(evaluateStartup(b), b), true);
+    const full = evaluateStartup(fullBundle());
+    const wrongSetup = { ...full, stages: [full.stages[0], { ...full.stages[1], state: 'in-progress' as const }] as typeof full.stages };
+    assert.equal(typeof evaluateStartupContract.post(wrongSetup, fullBundle()), 'string');
+    assert.equal(typeof evaluateStartupContract.post(full, EMPTY_BUNDLE), 'string');
+  });
+
+  it('C-40 loop inside the sprint only', () => {
+    const outside = fullBundle({ actio: actio({ teams: [actioTeam({ activeSprint: null })] }) });
+    for (const b of [EMPTY_BUNDLE, fullBundle(), outside]) assert.equal(evaluateSprintLoopContract.post(evaluateSprintLoop(b, NOW), b), true);
+    const inSprint = evaluateSprintLoop(fullBundle(), NOW);
+    assert.equal(typeof evaluateSprintLoopContract.post(inSprint, outside), 'string');
+    assert.equal(typeof evaluateSprintLoopContract.post({ ...inSprint, sprint: null }, fullBundle({ actio: null })), 'string');
+  });
+
+  it('C-41 analysis timing and recommendation', () => {
+    const outside = fullBundle({ actio: actio({ teams: [actioTeam({ activeSprint: null })] }) });
+    const atEnd = '2026-10-05T03:00:00.000Z';
+    for (const [b, now] of [[EMPTY_BUNDLE, NOW], [fullBundle(), NOW], [fullBundle(), atEnd], [outside, NOW]] as const) {
+      assert.equal(evaluateAnalyzeContract.post(evaluateAnalyze(b, now), b, now), true, now);
+    }
+    assert.equal(typeof evaluateAnalyzeContract.post(evaluateAnalyze(fullBundle(), NOW), fullBundle(), atEnd), 'string');
+    assert.equal(typeof evaluateAnalyzeContract.post(evaluateAnalyze(fullBundle(), NOW), outside, NOW), 'string');
+  });
+
+  it('C-42 Excubitor evidence keeps presence, state and autostart only', () => {
+    const body = { services: [{ code: 'br', state: 'running', pid: 42, host: { hostname: 'h' }, port: 4370, catalog_snapshot: { autostart: true, cwd: 'E:/x', env: { A: 'b' } } }] };
+    for (const [service, b] of [['br', body], ['nope', body], ['br', { services: [] }], ['br', {}], ['br', null]] as const) {
+      assert.equal(extractExcubitorEvidenceContract.post(extractExcubitorEvidence(service, b), service, b), true, `${service} ${JSON.stringify(b)}`);
+    }
+    const leaking = { ok: true as const, value: { ...excubitor(), port: 4370 } };
+    assert.equal(typeof extractExcubitorEvidenceContract.post(leaking, 'br', body), 'string');
+    assert.equal(typeof extractExcubitorEvidenceContract.post({ ok: true, value: excubitor() }, 'br', {}), 'string');
+  });
+
+  it('C-43 lifecycle override binding', () => {
+    for (const raw of [{ lifecycleOverride: 'released' }, { lifecycleOverride: '' }, { lifecycleOverride: 'done' }, {}, undefined, { lifecycleOverride: 'sprint', nope: 'x' }]) {
+      assert.equal(validateBindingsContract.post(validateBindings(raw), raw), true, JSON.stringify(raw));
+    }
+    assert.equal(typeof validateBindingsContract.post({ ok: true, value: { lifecycleOverride: 'released' } }, { lifecycleOverride: 'done' }), 'string');
+    assert.equal(typeof validateBindingsContract.post({ ok: true, value: {} }, { lifecycleOverride: 'operating' }), 'string');
   });
 });

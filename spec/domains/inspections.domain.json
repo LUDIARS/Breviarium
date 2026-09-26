@@ -1,6 +1,6 @@
 {
   "name": "inspections",
-  "description": "検査とクラス評価 (business): ソースごとの生データを証跡へ正規化する extractor (純関数。Anatomia / Revisor CLI の出力と Pf 受入・Cc ドメインレビュー投稿を件数・状態・日時だけに落とす)、検査 (tool/kind/status/grade/score/evidence/measuredAt/commit) の組み立て、A/B/C/D/— のクラス閾値とツールのまとめクラス、praeforma/acceptance・anatomia/domain-coverage・anatomia/verify・revisor/merge-risk のクラス規則、Actio スプリントの進捗 (消化率・経過率) と terpsichore/sprint-health のクラス規則 (BR-UX-5) を所有する。未計測を 0 点や推測で埋めない。",
+  "description": "検査とクラス評価 (business): ソースごとの生データを証跡へ正規化する extractor (純関数。Anatomia / Revisor CLI の出力と Pf 受入・Cc ドメインレビュー投稿・Excubitor のサービス一覧を件数・状態・日時だけに落とす)、検査 (tool/kind/status/grade/score/evidence/measuredAt/commit) の組み立て、A/B/C/D/— のクラス閾値とツールのまとめクラス、praeforma/acceptance・anatomia/domain-coverage・anatomia/verify・revisor/merge-risk のクラス規則、Actio スプリントの進捗 (消化率・経過率) と terpsichore/sprint-health のクラス規則 (BR-UX-5) を所有する。未計測を 0 点や推測で埋めない。",
   "presetRules": [],
   "templateRules": [],
   "membership": [

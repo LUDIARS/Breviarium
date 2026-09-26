@@ -21,6 +21,8 @@ export interface BreviariumConfig {
   readonly elegantiaUrl?: string;
   readonly concordiaUrl?: string;
   readonly actioUrl?: string;
+  /** Excubitor's API (`GET /api/v1/services`); absent = the excubitor source is not connected. */
+  readonly excubitorUrl?: string;
   readonly voluptasDataDir?: string;
   /** Anatomia CLI script (`bin/anatomia.mjs`); absent = the anatomia-cli source is not connected. */
   readonly anatomiaCliPath?: string;
@@ -29,10 +31,6 @@ export interface BreviariumConfig {
   /** 0 = periodic refresh disabled (default). */
   readonly refreshIntervalSec: number;
   readonly snapshotMaxAgeHours: number;
-  readonly staleAfterDays: number;
-  readonly staleCommitLagDays: number;
-  /** The periodic review stage is stale when its newest review post is older than this. */
-  readonly reviewStaleDays: number;
   /** Host / Origin values the Web entrance accepts. */
   readonly access: WebAccess;
   /** Access application the public entrance verifies against; absent = public requests get 503. */
@@ -43,9 +41,6 @@ export const CONFIG_DEFAULTS = {
   sourceTimeoutMs: 5000,
   refreshIntervalSec: 0,
   snapshotMaxAgeHours: 24,
-  staleAfterDays: 30,
-  staleCommitLagDays: 7,
-  reviewStaleDays: 30,
 } as const;
 
 export class ConfigError extends Error {}
@@ -121,6 +116,7 @@ export function loadConfig(env: Env): BreviariumConfig {
   const elegantiaUrl = asConfigError(() => resolveSourceUrl(env, 'ELEGANTIA'));
   const concordiaUrl = asConfigError(() => resolveSourceUrl(env, 'CONCORDIA'));
   const actioUrl = asConfigError(() => resolveSourceUrl(env, 'ACTIO'));
+  const excubitorUrl = asConfigError(() => resolveSourceUrl(env, 'EXCUBITOR'));
   const voluptasDataDir = optionalAbsolutePath(env, 'BREVIARIUM_VOLPUTAS_DATA_DIR');
   const anatomiaCliPath = optionalAbsolutePath(env, 'BREVIARIUM_ANATOMIA_CLI');
   const revisorCliPath = optionalAbsolutePath(env, 'BREVIARIUM_REVISOR_CLI');
@@ -134,14 +130,12 @@ export function loadConfig(env: Env): BreviariumConfig {
     ...(elegantiaUrl ? { elegantiaUrl } : {}),
     ...(concordiaUrl ? { concordiaUrl } : {}),
     ...(actioUrl ? { actioUrl } : {}),
+    ...(excubitorUrl ? { excubitorUrl } : {}),
     ...(voluptasDataDir ? { voluptasDataDir } : {}),
     ...(anatomiaCliPath ? { anatomiaCliPath } : {}),
     ...(revisorCliPath ? { revisorCliPath } : {}),
     refreshIntervalSec: refreshInterval(env),
     snapshotMaxAgeHours: integer(env, 'BREVIARIUM_SNAPSHOT_MAX_AGE_HOURS', 1, 24 * 365, CONFIG_DEFAULTS.snapshotMaxAgeHours),
-    staleAfterDays: integer(env, 'BREVIARIUM_STALE_AFTER_DAYS', 1, 3650, CONFIG_DEFAULTS.staleAfterDays),
-    staleCommitLagDays: integer(env, 'BREVIARIUM_STALE_COMMIT_LAG_DAYS', 0, 3650, CONFIG_DEFAULTS.staleCommitLagDays),
-    reviewStaleDays: integer(env, 'BREVIARIUM_REVIEW_STALE_DAYS', 1, 3650, CONFIG_DEFAULTS.reviewStaleDays),
     access: asConfigError(() => buildWebAccess(port, env['LUDIARS_ALLOWED_HOSTS'], env['BREVIARIUM_VIEWER_ORIGINS'], env['BREVIARIUM_PUBLIC_URL'])),
     ...(cloudflareAccess ? { cloudflareAccess } : {}),
   };

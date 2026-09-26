@@ -141,6 +141,7 @@ describe('repository sources', () => {
     const outcome = await source.fetch(project({ repoPath: 'E:/Work/Br; rm -rf x' }));
     assert.equal(outcome.kind, 'ok');
     assert.ok(seen.every((call) => call[0] === 'E:/Work/Br; rm -rf x'));
+    assert.ok(seen.some((call) => call.join(' ') === 'E:/Work/Br; rm -rf x tag --list --sort=-creatordate'));
     const failing = createGitSource(async () => {
       throw new Error('git log に失敗');
     });

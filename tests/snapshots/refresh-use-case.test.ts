@@ -41,7 +41,7 @@ describe('refresh use case', () => {
     assert.equal(after?.error, 'GET /api/projects: HTTP 503');
     const overview = await loadProjectOverview(deps.overview, 'Br');
     assert.equal(overview.ok && overview.value.sources.find((s) => s.source === 'praeforma')?.freshness.state, 'stale');
-    assert.equal(overview.ok && overview.value.stages.find((s) => s.id === 'S2')?.state, 'done');
+    assert.equal(overview.ok && overview.value.workflow.startup.checklist.find((c) => c.id === 'praeforma')?.done, true);
   });
 
   it('records an adapter that throws as a failure of that source only', async () => {

@@ -9,7 +9,7 @@
 ```
 SourceSnapshot = {
   projectCode, source, sourceVersion,
-  subject,         // 何を取得したか (例: praeforma:<projectId>、elegantia:<product>、actio:<code>、anatomia-cli:<project>、revisor:<owner/name>、repo)
+  subject,         // 何を取得したか (例: praeforma:<projectId>、elegantia:<product>、actio:<code>、anatomia-cli:<project>、revisor:<owner/name>、excubitor:<service>、repo)
   data,            // extractor が正規化した証跡。一度も成功していなければ null
   dataFetchedAt,   // data を取得できた日時
   attemptedAt,     // 最後に取得を試みた日時
@@ -19,6 +19,7 @@ SourceSnapshot = {
 ```
 
 `sourceVersion` は証跡の形の版。読み取り時に現行版と違う data は使わず「未取得」として扱う (古い形を誤読しない)。
+`git` は 2 (最新の `v` tag を追加)、`revisor` は 2 (Revisor 登録と版を追加)。版を上げたソースは次の更新まで「未取得」になる。
 
 ## 更新 (refresh) の不変条件
 
@@ -31,10 +32,10 @@ SourceSnapshot = {
 - 同じプロジェクトの更新が走っている間の二重更新は `refresh_in_progress` (409) で断る。
 - 未知のソース id は `unknown_source` で断り、どのソースにも問い合わせない。
 
-## ソース (12 本)
+## ソース (13 本)
 
 `git` / `praeforma` / `praeforma-acceptance` / `anatomia` / `anatomia-cli` / `repo-artifacts` / `voluptas` / `elegantia` /
-`concordia` / `concordia-reviews` / `revisor` / `actio` (`SOURCE_IDS`)。取得先ごとに別のソースとして持つので、1 つの失敗は
+`concordia` / `concordia-reviews` / `revisor` / `actio` / `excubitor` (`SOURCE_IDS`)。取得先ごとに別のソースとして持つので、1 つの失敗は
 そのソースの前回値だけを残し、ほかのソースの更新を止めない。
 
 | source | 未取得 (failed、理由を残して前回値保持) | 未接続 (not-connected) |
@@ -42,7 +43,8 @@ SourceSnapshot = {
 | praeforma-acceptance | 404 (API 未配備・プロジェクト無し)・HTML が返る (未配備)・形違い | `PRAEFORMA_URL` 未設定・bindings.praeformaProjectId 未登録 |
 | anatomia-cli | project 未登録 (CLI の `unknown project`)・CLI 不在・120 秒超過・非 0 終了・JSON でない出力 | `BREVIARIUM_ANATOMIA_CLI` 未設定 |
 | concordia-reviews | 404 (posts API 未配備)・接続不可・形違い | `CONCORDIA_URL` 未設定 |
-| revisor | CLI 不在・60 秒超過 (1 回の実行)・非 0 終了・形違い | `BREVIARIUM_REVISOR_CLI` 未設定・bindings.githubRepo 未登録 |
+| revisor | CLI 不在・60 秒超過 (1 回の実行)・非 0 終了・形違い (`version show` の非 0 終了だけは「版を読めない」= null で失敗にしない) | `BREVIARIUM_REVISOR_CLI` 未設定・bindings.githubRepo 未登録 |
+| excubitor | 接続不可・HTTP エラー・形違い (`services` が配列でない) | `EXCUBITOR_URL` (または `BREVIARIUM_EXCUBITOR_URL`) 未設定 |
 
 CLI の stderr (ローカルパスを含み得る) は失敗の分類にだけ使い、`error` に保存しない。
 

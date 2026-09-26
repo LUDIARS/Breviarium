@@ -8,6 +8,7 @@ import type {
   DomainReviewsEvidence,
   ElegantiaEvidence,
   EvidenceBundle,
+  ExcubitorEvidence,
   GitEvidence,
   PraeformaAcceptanceEvidence,
   PraeformaEvidence,
@@ -22,15 +23,13 @@ import type { Project } from '../../registry/domain/model.ts';
 import type { ProjectStore } from '../../registry/ports.ts';
 import { fail, ok, type Result } from '../../shared/result.ts';
 import type { Clock } from '../../shared/runtime.ts';
-import { currentStage, evaluateStages, type StageResult } from '../../workflow/domain/stage-evaluation.ts';
-import type { StalePolicy } from '../../workflow/domain/staleness.ts';
+import { evaluateWorkflow, type WorkflowView } from '../../workflow/domain/workflow-evaluation.ts';
 import { assessFreshness, type Freshness } from '../domain/freshness.ts';
 import { type AttemptStatus, SOURCE_IDS, SOURCE_LABELS, type SourceId, type SourceSnapshot } from '../domain/model.ts';
 import { usableData } from '../domain/snapshot-rules.ts';
 import type { SnapshotStore } from '../ports.ts';
 
 export interface OverviewPolicy {
-  readonly stale: StalePolicy;
   readonly snapshotMaxAgeMs: number;
 }
 
@@ -57,8 +56,8 @@ export interface ProjectOverview {
   readonly project: Project;
   readonly generatedAt: string;
   readonly head: GitEvidence | null;
-  readonly stages: readonly StageResult[];
-  readonly currentStage: StageResult | null;
+  /** Lifecycle, startup phase, sprint loop and analyses (spec/feature/workflow.md). */
+  readonly workflow: WorkflowView;
   readonly inspections: readonly Inspection[];
   readonly tools: readonly ToolSummary[];
   /** Sprint board from the Actio snapshot; null when there is none (not connected / never fetched). */
@@ -88,13 +87,13 @@ export function bundleFrom(snapshots: readonly SourceSnapshot[]): EvidenceBundle
     domainReviews: data('concordia-reviews') as DomainReviewsEvidence | null,
     revisor: data('revisor') as RevisorEvidence | null,
     actio: data('actio') as ActioEvidence | null,
+    excubitor: data('excubitor') as ExcubitorEvidence | null,
   };
 }
 
 /** Pure composition of the executive-summary read model from one project's snapshots. */
 export function composeOverview(project: Project, snapshots: readonly SourceSnapshot[], now: string, policy: OverviewPolicy): ProjectOverview {
   const bundle = bundleFrom(snapshots);
-  const stages = evaluateStages(bundle, policy.stale, now);
   const inspections = buildInspections(bundle);
   const sources = SOURCE_IDS.map((source): SourceView => {
     const s = find(snapshots, source);
@@ -113,8 +112,7 @@ export function composeOverview(project: Project, snapshots: readonly SourceSnap
     project,
     generatedAt: now,
     head: bundle.git,
-    stages,
-    currentStage: currentStage(stages),
+    workflow: evaluateWorkflow(bundle, project.bindings.lifecycleOverride ?? null, now),
     inspections,
     tools: summarizeTools(inspections),
     sprints: buildSprintBoard(bundle.actio),

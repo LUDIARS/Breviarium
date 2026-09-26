@@ -9,7 +9,7 @@ export class SourceUrlError extends Error {}
  * so no source address is duplicated in Breviarium's catalog. Neither set means the
  * source is not connected — never a guessed address.
  */
-export function resolveSourceUrl(env: Env, name: 'PRAEFORMA' | 'ELEGANTIA' | 'CONCORDIA' | 'ACTIO'): string | undefined {
+export function resolveSourceUrl(env: Env, name: 'PRAEFORMA' | 'ELEGANTIA' | 'CONCORDIA' | 'ACTIO' | 'EXCUBITOR'): string | undefined {
   const explicitKey = `BREVIARIUM_${name}_URL`;
   const topologyKey = `${name}_URL`;
   const explicit = env[explicitKey]?.trim();

@@ -130,10 +130,15 @@ function teamView(team: ActioTeamFact, today: string): TeamSprintView {
   };
 }
 
+/** JST date Actio counted the tasks on: sprint progress (consumption and elapsed) is measured on that day. */
+export function actioCountedOn(e: ActioEvidence): string {
+  // generatedAt is validated by the extractor; the UTC date is only a fallback for hand-made evidence.
+  return jstDate(e.generatedAt) ?? e.generatedAt.slice(0, 10);
+}
+
 /** The sprint board of a project; null when there is no usable Actio snapshot. */
 export function buildSprintBoard(e: ActioEvidence | null): SprintBoard | null {
   if (!e) return null;
-  // generatedAt is validated by the extractor; the UTC date is only a fallback for hand-made evidence.
-  const today = jstDate(e.generatedAt) ?? e.generatedAt.slice(0, 10);
+  const today = actioCountedOn(e);
   return { project: e.project, generatedAt: e.generatedAt, today, teams: e.teams.map((team) => teamView(team, today)) };
 }

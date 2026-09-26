@@ -35,20 +35,26 @@ main { padding:12px 16px 32px; max-width:1200px; margin:0 auto; }
 .project-head { display:flex; flex-wrap:wrap; gap:4px 12px; align-items:baseline; }
 .project-head a { display:inline-flex; align-items:center; min-height:var(--tap); font-weight:600; font-size:17px; }
 .badge { display:inline-block; font-size:12px; border:1px solid currentColor; border-radius:10px; padding:0 8px; }
-.stage-bar { list-style:none; margin:8px 0; padding:0; display:grid; grid-template-columns:repeat(9, minmax(0,1fr)); gap:3px; }
-.stage-bar li { text-align:center; font-size:12px; padding:4px 0; border-radius:6px; border:1px solid var(--line); min-width:0; }
-.st-not-started { background:var(--s-not-started); } .st-in-progress { background:var(--s-in-progress); } .st-done { background:var(--s-done); } .st-stale { background:var(--s-stale); }
+.lifecycle { font-weight:600; } .lc-sprint { color:var(--accent); } .lc-released, .lc-operating { color:var(--ok); }
+.phase-rows { display:grid; gap:4px; margin:8px 0; }
+.phase-row { display:grid; grid-template-columns:minmax(0,7em) minmax(0,1fr); gap:6px; align-items:center; }
+.phase-name { font-size:12px; color:var(--muted); min-width:0; }
+.phase-bar { list-style:none; margin:0; padding:0; display:flex; gap:3px; min-width:0; }
+.phase-bar li { flex:1 1 0; text-align:center; font-size:12px; padding:4px 0; border-radius:6px; border:1px solid var(--line); min-width:0; }
+.st-not-started { background:var(--s-not-started); } .st-in-progress { background:var(--s-in-progress); } .st-done { background:var(--s-done); }
+.an-current { background:var(--s-done); } .an-late { background:var(--s-stale); } .an-none { background:var(--s-not-started); } .an-no-sprint { background:var(--s-in-progress); }
+.checklist li { margin:2px 0; }
 .legend { font-size:12px; display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; }
 .legend span::before { content:""; display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:4px; vertical-align:middle; border:1px solid var(--line); }
-.legend .st-not-started::before { background:var(--s-not-started); } .legend .st-in-progress::before { background:var(--s-in-progress); } .legend .st-done::before { background:var(--s-done); } .legend .st-stale::before { background:var(--s-stale); }
-.legend span { background:none; }
+.legend .st-not-started::before { background:var(--s-not-started); } .legend .st-in-progress::before { background:var(--s-in-progress); } .legend .st-done::before { background:var(--s-done); } .legend .an-late::before { background:var(--s-stale); }
+.legend span { background:none; } .legend .legend-note::before { display:none; }
 .chips { list-style:none; margin:6px 0; padding:0; display:flex; flex-wrap:wrap; gap:4px; }
 .chip { display:inline-flex; align-items:center; gap:4px; font-size:12px; border:1px solid var(--line); border-radius:12px; padding:2px 8px; min-width:0; max-width:100%; }
 .grade { font-weight:700; }
 .g-A { color:var(--g-A); } .g-B { color:var(--g-B); } .g-C { color:var(--g-C); } .g-D { color:var(--g-D); } .g-none { color:var(--g-none); }
 .timeline { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
 .timeline li { border-left:6px solid var(--line); padding:4px 10px; border-radius:4px; background:var(--bg); }
-.timeline li.st-not-started { border-left-color:var(--line); background:var(--bg); } .timeline li.st-in-progress { border-left-color:var(--accent); background:var(--bg); } .timeline li.st-done { border-left-color:var(--ok); background:var(--bg); } .timeline li.st-stale { border-left-color:var(--warn); background:var(--bg); }
+.timeline li.st-not-started { border-left-color:var(--line); background:var(--bg); } .timeline li.st-in-progress { border-left-color:var(--accent); background:var(--bg); } .timeline li.st-done { border-left-color:var(--ok); background:var(--bg); }
 .table-scroll { overflow-x:auto; max-width:100%; }
 table { border-collapse: collapse; width:100%; font-size:13px; }
 td, th { border-bottom:1px solid var(--line); padding:6px; text-align:left; vertical-align:top; min-width:5em; }

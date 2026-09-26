@@ -7,7 +7,7 @@
 
 ```
 Project = { code, name, repoPath, classification, bindings, registeredAt, updatedAt }
-bindings = { praeformaProjectId?, elegantiaProduct?, voluptasPath?, githubRepo?, actioProjectCode?, anatomiaProject? }
+bindings = { praeformaProjectId?, elegantiaProduct?, voluptasPath?, githubRepo?, actioProjectCode?, anatomiaProject?, excubitorService?, lifecycleOverride? }
 ```
 
 ## 規則
@@ -24,6 +24,8 @@ bindings = { praeformaProjectId?, elegantiaProduct?, voluptasPath?, githubRepo?,
 | bindings.githubRepo | `owner/name` | `invalid_binding` |
 | bindings.actioProjectCode | Actio (Cc 同期) が知る Cc の略称。code と同じ形式 (英字で始まる英数字 1〜16 文字)。未登録なら登録 code で Actio のスプリントを読む ([sprints](sprints.md)) | `invalid_binding` |
 | bindings.anatomiaProject | Anatomia の project id (CLI の `--project`)。英数字で始まり英数字・`_`・`-`・`.` 1〜64 文字。未登録なら小文字の登録 code で問い合わせる | `invalid_binding` |
+| bindings.excubitorService | Excubitor の catalog のサービス code。英数字で始まり英数字・`_`・`-`・`.` 1〜64 文字。未登録なら小文字の登録 code で探す (状態「運用中」の判定、[workflow](workflow.md)) | `invalid_binding` |
+| bindings.lifecycleOverride | 状態の手動上書き。`startup` / `sprint` / `released` / `operating` のどれか。空は自動判定 (保存しない)。画面の登録編集では選択肢 | `invalid_binding` |
 | (未知の binding キー) | 受け付けない | `invalid_binding` |
 
 - 更新 (`planUpdate`) は code を変えない。bindings を渡したときは丸ごと置き換える (部分更新しない)。

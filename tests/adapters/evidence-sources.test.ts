@@ -5,11 +5,12 @@ import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { anatomiaProjectId, createAnatomiaCliRunner, createAnatomiaCliSource } from '../../src/adapters/sources/anatomia-cli-source.ts';
 import { createConcordiaReviewsSource, domainReviewsPath } from '../../src/adapters/sources/concordia-reviews-source.ts';
+import { createExcubitorSource, EXCUBITOR_SERVICES_PATH, excubitorServiceCode } from '../../src/adapters/sources/excubitor-source.ts';
 import type { FetchLike } from '../../src/adapters/sources/http-json.ts';
 import { type CliRunner, CliRunError, createNodeCliRunner } from '../../src/adapters/sources/node-cli-runner.ts';
 import { acceptanceSummaryPath, createPraeformaAcceptanceSource } from '../../src/adapters/sources/praeforma-acceptance-source.ts';
 import { createRevisorCliRunner, createRevisorSource, withoutGitConfigInjection } from '../../src/adapters/sources/revisor-source.ts';
-import type { AnatomiaCoverageEvidence, DomainReviewsEvidence, PraeformaAcceptanceEvidence, RevisorEvidence } from '../../src/inspections/domain/evidence.ts';
+import type { AnatomiaCoverageEvidence, DomainReviewsEvidence, ExcubitorEvidence, PraeformaAcceptanceEvidence, RevisorEvidence } from '../../src/inspections/domain/evidence.ts';
 import { registerProject } from '../../src/registry/application/registry-use-cases.ts';
 import type { SourceId, SourceSnapshot } from '../../src/snapshots/domain/model.ts';
 import type { SourceAdapter } from '../../src/snapshots/ports.ts';
@@ -158,8 +159,18 @@ function prShow(number: number): string {
   });
 }
 
-function revisorCli(calls: string[][] = []): CliRunner {
-  return fakeCli((args) => (args[1] === 'list' ? JSON.stringify(listing()) : prShow(Number(args[2]))), calls);
+/** Revisor's registrations (each with its local root path, which must not be kept). */
+function repoList(): string {
+  return JSON.stringify([{ repository: 'ludiars/breviarium', rootPath: 'E:/Work/Breviarium', baseRef: 'main' }, { repository: 'LUDIARS/Other', rootPath: 'E:/Work/Other' }]);
+}
+
+/** A Revisor CLI answering repo list, pr list, pr show and version show (`version` is its stdout or its failure). */
+function revisorCli(calls: string[][] = [], version: string | Error = 'uninitialized\n'): CliRunner {
+  return fakeCli((args) => {
+    if (args[0] === 'repo') return repoList();
+    if (args[0] === 'version') return version;
+    return args[1] === 'list' ? JSON.stringify(listing()) : prShow(Number(args[2]));
+  }, calls);
 }
 
 describe('revisor source', () => {
@@ -170,26 +181,44 @@ describe('revisor source', () => {
     assert.match(noRepo.kind === 'not-connected' ? noRepo.reason : '', /bindings\.githubRepo/);
   });
 
-  it('lists the repository, then shows the newest five merged PRs one by one, keeping gate and risk only', async () => {
+  it('checks the registration, lists the PRs, shows the newest five merged ones one by one, then reads the version', async () => {
     const calls: string[][] = [];
     const outcome = await createRevisorSource(revisorCli(calls)).fetch(project());
     assert.deepEqual(calls, [
+      ['repo', 'list', '--json'],
       ['pr', 'list', '--repository', 'LUDIARS/Breviarium', '--json'],
       ['pr', 'show', '15', '--json'],
       ['pr', 'show', '14', '--json'],
       ['pr', 'show', '13', '--json'],
       ['pr', 'show', '12', '--json'],
       ['pr', 'show', '11', '--json'],
+      ['version', 'show', '--repo', 'E:/Work/Breviarium'],
     ]);
     assert.equal(outcome.kind, 'ok');
     if (outcome.kind !== 'ok') return;
     assert.equal(outcome.subject, 'revisor:LUDIARS/Breviarium');
     const e = outcome.data as RevisorEvidence;
+    assert.deepEqual({ registered: e.registered, localVersion: e.localVersion }, { registered: true, localVersion: 'uninitialized' });
     assert.deepEqual(e.merged.map((pr) => pr.number), [15, 14, 13, 12, 11]);
     assert.deepEqual(e.merged[0]?.anatomiaGate, { status: 'passed', advisoryCount: 1 });
     assert.deepEqual(e.merged[1]?.mergeRisk, { band: 'high', score: 48 });
     const stored = JSON.stringify(e);
-    for (const leaked of ['PR body text', 'title', 'advisory text', '57 ファイル']) assert.equal(stored.includes(leaked), false, leaked);
+    for (const leaked of ['PR body text', 'title', 'advisory text', '57 ファイル', 'E:/Work']) assert.equal(stored.includes(leaked), false, leaked);
+  });
+
+  it('reads a released version, and treats a version file Revisor cannot read as unknown (not a failure)', async () => {
+    const released = await createRevisorSource(revisorCli([], '1.4.0\n')).fetch(project());
+    assert.equal(released.kind === 'ok' && (released.data as RevisorEvidence).localVersion, '1.4.0');
+    const unmanaged = await createRevisorSource(revisorCli([], new CliRunError('Revisor CLI (version show) が失敗 (exit 1)', 'exit'))).fetch(project());
+    assert.equal(unmanaged.kind, 'ok');
+    assert.equal(unmanaged.kind === 'ok' && (unmanaged.data as RevisorEvidence).localVersion, null);
+    const slow = await createRevisorSource(revisorCli([], new CliRunError('Revisor CLI (version show) が 60 秒でタイムアウト', 'timeout'))).fetch(project());
+    assert.equal(slow.kind, 'failed');
+  });
+
+  it('says so when the repository is not registered with Revisor', async () => {
+    const outcome = await createRevisorSource(revisorCli()).fetch(project({ bindings: { githubRepo: 'LUDIARS/Nope' } }));
+    assert.equal(outcome.kind === 'ok' && (outcome.data as RevisorEvidence).registered, false);
   });
 
   it('a missing CLI, a foreign listing and a failed show are failures with a reason', async () => {
@@ -207,9 +236,10 @@ describe('revisor source', () => {
 
   it('keeps the previous PRs when the CLI later fails', async () => {
     let calls = 0;
+    const working = revisorCli();
     const run: CliRunner = async (args) => {
-      if (calls++ >= 6) throw new CliRunError('Revisor CLI が見つからない', 'missing');
-      return args[1] === 'list' ? JSON.stringify(listing()) : prShow(Number(args[2]));
+      if (calls++ >= 8) throw new CliRunError('Revisor CLI が見つからない', 'missing');
+      return working(args);
     };
     const attempt = await refreshOnly('revisor', createRevisorSource(run));
     assert.equal((await attempt(T1))?.status, 'ok');
@@ -371,5 +401,48 @@ describe('node CLI runner (real child processes)', () => {
     assert.ok(slow instanceof CliRunError);
     assert.equal(slow.failure, 'timeout');
     assert.equal(slow.message, 'Test CLI (pr list) が 1 秒でタイムアウト');
+  });
+});
+
+describe('excubitor source', () => {
+  /** Excubitor's service list: Breviarium stopped, another service running on autostart, with the fields Breviarium must not keep. */
+  const services = () => ({
+    services: [
+      { code: 'breviarium', name: 'Breviarium', state: 'stopped', pid: null, host: { hostname: 'host-a' }, port: 4370, git_hash: 'abc', catalog_snapshot: { autostart: false, cwd: 'E:/Ars/Breviarium', env: { SECRET: 'x' } } },
+      { code: 'actio', state: 'Running', pid: 42, port: 3000, catalog_snapshot: { autostart: true } },
+    ],
+  });
+
+  it('is not connected without EXCUBITOR_URL, and asks GET /api/v1/services for the bound or lower-case code', async () => {
+    const off = await createExcubitorSource(undefined).fetch(project());
+    assert.match(off.kind === 'not-connected' ? off.reason : '', /EXCUBITOR_URL/);
+    const calls: string[] = [];
+    const outcome = await createExcubitorSource(http(scriptedFetch([() => json(200, services())], calls))).fetch(project({ bindings: { excubitorService: 'breviarium' } }));
+    assert.deepEqual(calls, [EXCUBITOR_SERVICES_PATH]);
+    assert.equal(outcome.kind === 'ok' && outcome.subject, 'excubitor:breviarium');
+    assert.equal(excubitorServiceCode(project({ bindings: {} })), 'br');
+  });
+
+  it('keeps presence, state and autostart only (no host, pid, port, paths or env)', async () => {
+    const source = createExcubitorSource(http(scriptedFetch([() => json(200, services())])));
+    const stopped = await source.fetch(project({ bindings: { excubitorService: 'breviarium' } }));
+    assert.deepEqual(stopped.kind === 'ok' && stopped.data, { service: 'breviarium', found: true, state: 'stopped', autostart: false } satisfies ExcubitorEvidence);
+    const stored = JSON.stringify(stopped.kind === 'ok' ? stopped.data : null);
+    for (const leaked of ['host-a', '4370', 'E:/Ars', 'SECRET', 'abc']) assert.equal(stored.includes(leaked), false, leaked);
+    const running = await source.fetch(project({ code: 'Actio', bindings: {} }));
+    assert.deepEqual(running.kind === 'ok' && running.data, { service: 'actio', found: true, state: 'running', autostart: true } satisfies ExcubitorEvidence);
+    const missing = await source.fetch(project({ bindings: {} }));
+    assert.deepEqual(missing.kind === 'ok' && missing.data, { service: 'br', found: false, state: null, autostart: null } satisfies ExcubitorEvidence);
+  });
+
+  it('an unreachable Excubitor or a foreign answer is a failure, and the previous service state stays', async () => {
+    const foreign = await createExcubitorSource(http(scriptedFetch([() => json(200, { items: [] })]))).fetch(project());
+    assert.match(foreign.kind === 'failed' ? foreign.error : '', /excubitor_shape/);
+    const attempt = await refreshOnly('excubitor', createExcubitorSource(http(scriptedFetch([() => json(200, services()), new Error('ECONNREFUSED')]))));
+    assert.equal((await attempt(T1))?.status, 'ok');
+    const s = await attempt(T2);
+    assert.equal(s?.status, 'failed');
+    assert.match(s?.error ?? '', /GET \/api\/v1\/services: 接続できない/);
+    assert.equal(s?.dataFetchedAt, T1);
   });
 });

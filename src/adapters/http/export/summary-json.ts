@@ -5,7 +5,7 @@ import type { Classification } from '../../../registry/domain/model.ts';
 import type { ProjectOverview } from '../../../snapshots/application/project-overview.ts';
 import type { FreshnessReason, FreshnessState } from '../../../snapshots/domain/freshness.ts';
 import type { AttemptStatus, SourceId } from '../../../snapshots/domain/model.ts';
-import type { StageId, StageState } from '../../../workflow/domain/stages.ts';
+import { toWorkflowSummary, type WorkflowSummary } from './workflow-summary.ts';
 
 /** Sprint section of the summary: names, goals, dates and counts only (no ids, no task text). */
 export interface SprintSummary {
@@ -49,13 +49,13 @@ export interface SprintSummary {
  */
 export interface ExecutiveSummary {
   readonly format: 'breviarium-summary';
-  readonly version: 1;
+  /** 2: the workflow (lifecycle + startup / loop / analyze) replaced the fixed stages. */
+  readonly version: 2;
   readonly generatedAt: string;
   readonly notice: string | null;
   readonly project: { readonly code: string; readonly name: string; readonly classification: Classification };
   readonly head: { readonly sha: string; readonly committedAt: string; readonly branch: string | null } | null;
-  readonly currentStage: { readonly id: StageId; readonly title: string; readonly state: StageState } | null;
-  readonly stages: readonly { readonly id: StageId; readonly title: string; readonly state: StageState; readonly reasons: readonly string[]; readonly evidenceAt: string | null }[];
+  readonly workflow: WorkflowSummary;
   readonly tools: readonly { readonly tool: ToolId; readonly grade: Grade }[];
   readonly inspections: readonly {
     readonly tool: ToolId;
@@ -122,13 +122,12 @@ export const INTERNAL_NOTICE = 'Internal — LUDIARS 外へ共有しない';
 export function toExecutiveSummary(o: ProjectOverview): ExecutiveSummary {
   return {
     format: 'breviarium-summary',
-    version: 1,
+    version: 2,
     generatedAt: o.generatedAt,
     notice: o.project.classification === 'internal' ? INTERNAL_NOTICE : null,
     project: { code: o.project.code, name: o.project.name, classification: o.project.classification },
     head: o.head ? { sha: o.head.headSha, committedAt: o.head.headCommittedAt, branch: o.head.branch } : null,
-    currentStage: o.currentStage ? { id: o.currentStage.id, title: o.currentStage.title, state: o.currentStage.state } : null,
-    stages: o.stages.map((s) => ({ id: s.id, title: s.title, state: s.state, reasons: [...s.reasons], evidenceAt: s.evidenceAt })),
+    workflow: toWorkflowSummary(o.workflow),
     tools: o.tools.map((t) => ({ tool: t.tool, grade: t.grade })),
     inspections: o.inspections.map((i) => ({
       tool: i.tool,

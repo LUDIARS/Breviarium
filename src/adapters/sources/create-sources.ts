@@ -7,6 +7,7 @@ import { createAnatomiaSource } from './anatomia-source.ts';
 import { createConcordiaReviewsSource } from './concordia-reviews-source.ts';
 import { createConcordiaSource } from './concordia-source.ts';
 import { createElegantiaSource } from './elegantia-source.ts';
+import { createExcubitorSource } from './excubitor-source.ts';
 import { createGitRunner, createGitSource } from './git-source.ts';
 import type { FetchLike, HttpSourceOptions } from './http-json.ts';
 import { createPraeformaAcceptanceSource } from './praeforma-acceptance-source.ts';
@@ -17,7 +18,7 @@ import { createVoluptasSource } from './voluptas-source.ts';
 
 type SourceConfig = Pick<
   BreviariumConfig,
-  'sourceTimeoutMs' | 'praeformaUrl' | 'elegantiaUrl' | 'concordiaUrl' | 'actioUrl' | 'voluptasDataDir' | 'anatomiaCliPath' | 'revisorCliPath'
+  'sourceTimeoutMs' | 'praeformaUrl' | 'elegantiaUrl' | 'concordiaUrl' | 'actioUrl' | 'excubitorUrl' | 'voluptasDataDir' | 'anatomiaCliPath' | 'revisorCliPath'
 >;
 
 /** Every source from configuration. Unconfigured HTTP sources and CLIs report "not connected". */
@@ -37,5 +38,6 @@ export function createSources(config: SourceConfig, fetchImpl: FetchLike): Sourc
     'concordia-reviews': createConcordiaReviewsSource(http(config.concordiaUrl)),
     revisor: createRevisorSource(config.revisorCliPath ? createRevisorCliRunner(config.revisorCliPath) : undefined),
     actio: createActioSource(http(config.actioUrl)),
+    excubitor: createExcubitorSource(http(config.excubitorUrl)),
   };
 }

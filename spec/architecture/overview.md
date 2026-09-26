@@ -9,7 +9,7 @@ Excubitor 管理、loopback 待受。typecheck は `tsc`、テストは `node --
 src/
   shared/            Result・Clock・時刻の正規化 (業務判断を持たない共有カーネル)
   registry/          プロジェクト登録 (domain: 登録規則 = 純関数 / application: use case / ports)
-  workflow/          8 段 + 定期の段定義と段状態判定 (純関数)
+  workflow/          状態 (lifecycle) と 3 フェーズ (スタートアップ / PDCA ループ / アナライズ) の判定 (純関数)
   inspections/       検査の正規化・クラス判定 (純関数) と、ソースごとの extractor (純関数)
   snapshots/         スナップショット・鮮度 (純関数) と refresh use case、スナップショットだけを読む overview
   adapters/

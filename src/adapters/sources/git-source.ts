@@ -36,7 +36,7 @@ export function createGitRunner(timeoutMs: number): GitRunner {
     });
 }
 
-/** git: HEAD sha and commit time, branch, tag count of the registered checkout. */
+/** git: HEAD sha and commit time, branch, tag count and newest `v` tag of the registered checkout. */
 export function createGitSource(run: GitRunner): SourceAdapter {
   return {
     id: 'git',
@@ -45,7 +45,7 @@ export function createGitSource(run: GitRunner): SourceAdapter {
         const [head, branch, tags] = await Promise.all([
           run(project.repoPath, ['log', '-1', '--format=%H%n%cI']),
           run(project.repoPath, ['rev-parse', '--abbrev-ref', 'HEAD']),
-          run(project.repoPath, ['tag', '--list']),
+          run(project.repoPath, ['tag', '--list', '--sort=-creatordate']),
         ]);
         return fromResult(extractGitEvidence({ head, branch, tags }), `repo:${project.repoPath}`);
       } catch (error) {

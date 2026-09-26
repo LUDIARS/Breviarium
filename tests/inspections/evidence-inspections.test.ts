@@ -9,7 +9,7 @@ import { inspectConcordia } from '../../src/inspections/domain/service-inspectio
 import { extractAnatomiaCoverageEvidence } from '../../src/inspections/extractors/anatomia-coverage.ts';
 import { extractDomainReviewsEvidence } from '../../src/inspections/extractors/concordia-reviews.ts';
 import { extractPraeformaAcceptanceEvidence } from '../../src/inspections/extractors/praeforma-acceptance.ts';
-import { extractRevisorEvidence, latestMergedPrNumbers } from '../../src/inspections/extractors/revisor.ts';
+import { extractRevisorEvidence, latestMergedPrNumbers, revisorLocalVersion, revisorRegistration } from '../../src/inspections/extractors/revisor.ts';
 import { concordia } from '../support/fixtures.ts';
 
 function only(inspections: readonly Inspection[]): Inspection {
@@ -25,7 +25,8 @@ function pr(number: number, day: number, facts: Partial<MergedPrReviewFact> = {}
   return { number, mergedAt: `2026-09-${String(day).padStart(2, '0')}T00:00:00.000Z`, mergeCommit: null, anatomiaGate: null, mergeRisk: null, ...facts };
 }
 
-const revisorOf = (merged: MergedPrReviewFact[]): RevisorEvidence => ({ repository: 'LUDIARS/Breviarium', merged });
+const revisorOf = (merged: MergedPrReviewFact[]): RevisorEvidence => ({ repository: 'LUDIARS/Breviarium', registered: true, localVersion: null, merged });
+const facts = { registered: true, localVersion: '1.0.0' };
 const gate = (status: string, advisoryCount = 0) => ({ anatomiaGate: { status, advisoryCount } });
 const risk = (band: string, score: number | null = 10) => ({ mergeRisk: { band, score } });
 
@@ -98,14 +99,26 @@ describe('Revisor PRs, anatomia/verify and revisor/merge-risk', () => {
 
   it('keeps the gate status, advisory count, band and score of each shown PR, and refuses a PR of another repository', () => {
     const show = { number: 7, repository: 'LUDIARS/Breviarium', mergedAt: '2026-09-07T00:00:00Z', mergeCommitSha: 'd'.repeat(40), anatomiaGate: { status: 'PASSED', advisories: ['a', 'b'] }, mergeRisk: { band: 'Medium', score: 30 }, body: 'x' };
-    const result = extractRevisorEvidence('LUDIARS/Breviarium', [show, { ...show, number: 8, mergedAt: '2026-09-08T00:00:00Z', anatomiaGate: null, mergeRisk: { band: '<b>' } }]);
+    const result = extractRevisorEvidence('LUDIARS/Breviarium', [show, { ...show, number: 8, mergedAt: '2026-09-08T00:00:00Z', anatomiaGate: null, mergeRisk: { band: '<b>' } }], facts);
     assert.ok(result.ok);
+    assert.deepEqual({ registered: result.value.registered, localVersion: result.value.localVersion }, facts);
     assert.deepEqual(result.value.merged, [
       { number: 8, mergedAt: '2026-09-08T00:00:00.000Z', mergeCommit: 'd'.repeat(40), anatomiaGate: null, mergeRisk: null },
       { number: 7, mergedAt: '2026-09-07T00:00:00.000Z', mergeCommit: 'd'.repeat(40), anatomiaGate: { status: 'passed', advisoryCount: 2 }, mergeRisk: { band: 'medium', score: 30 } },
     ]);
-    const foreign = extractRevisorEvidence('LUDIARS/Breviarium', [{ ...show, repository: 'LUDIARS/Other' }]);
+    const foreign = extractRevisorEvidence('LUDIARS/Breviarium', [{ ...show, repository: 'LUDIARS/Other' }], facts);
     assert.equal(!foreign.ok && foreign.error.code, 'revisor_shape');
+  });
+
+  it('reads the Revisor registration from repo list (ignoring case) and the release version from version show', () => {
+    const list = [{ repository: 'ludiars/breviarium', rootPath: 'E:/Work/Breviarium', baseRef: 'main' }, { repository: 'LUDIARS/Other' }];
+    assert.deepEqual(revisorRegistration(list, 'LUDIARS/Breviarium'), { ok: true, value: true });
+    assert.deepEqual(revisorRegistration(list, 'LUDIARS/Nope'), { ok: true, value: false });
+    const bad = revisorRegistration({ repositories: [] }, 'LUDIARS/Breviarium');
+    assert.equal(!bad.ok && bad.error.code, 'revisor_shape');
+    assert.equal(revisorLocalVersion('1.2.3\n'), '1.2.3');
+    assert.equal(revisorLocalVersion('uninitialized\n'), 'uninitialized');
+    for (const junk of ['01.2.3', 'v1.2.3', 'Error: x', '', null]) assert.equal(revisorLocalVersion(junk), null, String(junk));
   });
 
   it('verify: the newest merge decides — passed A, passed with advisories B, failed D; otherwise `—`', () => {

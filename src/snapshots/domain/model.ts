@@ -17,6 +17,7 @@ export const SOURCE_IDS = [
   'concordia-reviews',
   'revisor',
   'actio',
+  'excubitor',
 ] as const;
 
 export type SourceId = (typeof SOURCE_IDS)[number];
@@ -38,11 +39,15 @@ export const SOURCE_LABELS: Readonly<Record<SourceId, string>> = {
   'concordia-reviews': 'Concordia (ドメインレビュー投稿)',
   revisor: 'Revisor (マージ済み PR)',
   actio: 'Actio (スプリント)',
+  excubitor: 'Excubitor (サービス運用)',
 };
 
-/** Version of the evidence shape each source stores. Data of another version is not read. */
+/**
+ * Version of the evidence shape each source stores. Data of another version is not read (it counts as
+ * missing until the next refresh). git 2 added the newest `v` tag, revisor 2 the registration and version.
+ */
 export const SOURCE_VERSIONS: Readonly<Record<SourceId, number>> = {
-  git: 1,
+  git: 2,
   praeforma: 1,
   'praeforma-acceptance': 1,
   anatomia: 1,
@@ -52,8 +57,9 @@ export const SOURCE_VERSIONS: Readonly<Record<SourceId, number>> = {
   elegantia: 1,
   concordia: 1,
   'concordia-reviews': 1,
-  revisor: 1,
+  revisor: 2,
   actio: 1,
+  excubitor: 1,
 };
 
 export type AttemptStatus = 'ok' | 'failed' | 'not-connected';

@@ -11,8 +11,8 @@ HTML はサーバ側レンダリング (テンプレートエンジン無し)。
 
 | 経路 | 内容 |
 |---|---|
-| `GET /` | 全プロジェクトの段階バー (S1〜S8 + 定期) + ツールごとのクラスチップ + スプリントのチップ (「スプリント: <名> <done>/<total> (経過 xx%)」/「スプリントなし」/「スプリント: 未取得」) + 鮮度 (古いソース数)。登録フォーム |
-| `GET /projects/:code` | 段階タイムライン (状態・理由・証跡日時)、検査表 (tool/kind/クラス/値/証跡/計測日時/commit)、スプリント区画 (チームごとの名前・ゴール・期間・進捗バー・経過バー・件数・計画中・未割付、[sprints](sprints.md))、ソースの鮮度表 (取得日時・試行日時・エラー)、更新ボタン (全体・ソース別)、登録編集、削除 |
+| `GET /` | 全プロジェクトの状態バッジ (スタートアップ / スプリント N 週目 (M 週) / リリース済み / 運用中、手動設定は「(手動設定)」) + 3 フェーズの小さな進捗 (スタートアップ 2 段 / ループ 4 段 / アナライズ 3 項目。段の状態は色と title・aria-label の文字で示し、アナライズは遅れ・推奨 (!) を示す) + ツールごとのクラスチップ + スプリントのチップ (「スプリント: <名> <done>/<total> (経過 xx%)」/「スプリントなし」/「スプリント: 未取得」) + 鮮度 (古いソース数)。登録フォーム |
+| `GET /projects/:code` | 状態と根拠 (自動判定 / 手動設定)、スタートアップ区画 (2 段のタイムライン + 整備チェックリスト 5 項目の済 / 未)、PDCA ループ区画 (スプリント名・期間、4 段のタイムライン、指標 2 つ、完成の定義)、アナライズ区画 (3 項目の最新解析・スプリントとの関係・推奨・根拠)、検査表 (tool/kind/クラス/値/証跡/計測日時/commit)、スプリント区画 (チームごとの名前・ゴール・期間・進捗バー・経過バー・件数・計画中・未割付、[sprints](sprints.md))、ソースの鮮度表 (取得日時・試行日時・エラー)、更新ボタン (全体・ソース別)、登録編集、削除 |
 | `GET /projects/:code/summary.md` | エグゼクティブサマリー (Markdown) の書き出し |
 | `GET /projects/:code/summary.json` | 同じ内容の JSON |
 | `POST /projects` | 登録フォーム → 303 で詳細へ |
@@ -36,7 +36,7 @@ Cloudflare Access 越しの閲覧者 (`viewer`) には登録フォーム・更�
 | `PUT /api/projects/:code` | 更新 `{ name?, repoPath?, classification?, bindings? }` (bindings は丸ごと置き換え) |
 | `DELETE /api/projects/:code` | 登録とそのスナップショットを削除 |
 | `POST /api/projects/:code/refresh` | 更新 `{ sources?: SourceId[] }` → ソース別の結果 |
-| `GET /api/projects/:code/overview` | スナップショットから組み立てた概要 (段・検査・ツールまとめ・鮮度) |
+| `GET /api/projects/:code/overview` | スナップショットから組み立てた概要 (`workflow` = 状態・スタートアップ・ループ・アナライズ、検査・ツールまとめ・鮮度) |
 | `GET /health` | 生存 (ソースと `access.cloudflareAccess` は configured / not_connected のみ。URL・team・AUD は出さない) |
 
 エラーは `{ error, message }`。`*_not_found` は 404、`duplicate_project` と `refresh_in_progress` は 409、

@@ -3,7 +3,7 @@ import { fail, ok, type Result } from '../../shared/result.ts';
 import { toIsoTimestamp } from '../../shared/time.ts';
 import type { GitEvidence } from '../domain/evidence.ts';
 
-/** Raw git output: `log -1 --format=%H%n%cI`, `rev-parse --abbrev-ref HEAD`, `tag --list`. */
+/** Raw git output: `log -1 --format=%H%n%cI`, `rev-parse --abbrev-ref HEAD`, `tag --list --sort=-creatordate` (newest first). */
 export interface GitRaw {
   readonly head: string;
   readonly branch: string;
@@ -11,6 +11,9 @@ export interface GitRaw {
 }
 
 const SHA = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
+/** A release tag: `v` followed by a digit (`v1.2.0`), the fallback release signal when Revisor has no version. */
+const VERSION_TAG = /^v\d/;
+const MAX_TAG_LENGTH = 100;
 
 export function extractGitEvidence(raw: GitRaw): Result<GitEvidence> {
   const [sha = '', date = ''] = raw.head.trim().split(/\r?\n/).map((line) => line.trim());
@@ -18,6 +21,16 @@ export function extractGitEvidence(raw: GitRaw): Result<GitEvidence> {
   const committedAt = toIsoTimestamp(date);
   if (!committedAt) return fail('git_shape', 'HEAD の commit 日時を読めない');
   const branch = raw.branch.trim();
-  const tagCount = raw.tags.split(/\r?\n/).filter((line) => line.trim() !== '').length;
-  return ok({ headSha: sha, headCommittedAt: committedAt, branch: branch === '' || branch === 'HEAD' ? null : branch, tagCount });
+  const tags = raw.tags
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  const latestVersionTag = tags.find((tag) => VERSION_TAG.test(tag) && tag.length <= MAX_TAG_LENGTH) ?? null;
+  return ok({
+    headSha: sha,
+    headCommittedAt: committedAt,
+    branch: branch === '' || branch === 'HEAD' ? null : branch,
+    tagCount: tags.length,
+    latestVersionTag,
+  });
 }

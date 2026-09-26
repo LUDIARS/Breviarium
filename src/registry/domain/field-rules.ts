@@ -1,6 +1,6 @@
 // @implements SPEC-br-registry
 import { fail, ok, type Result } from '../../shared/result.ts';
-import { BINDING_KEYS, type BindingKey, type Classification, CLASSIFICATIONS, type ProjectBindings } from './model.ts';
+import { BINDING_KEYS, type BindingKey, type Classification, CLASSIFICATIONS, LIFECYCLE_KINDS, type ProjectBindings } from './model.ts';
 
 /** Cc project code: a letter followed by letters/digits, 1–16 characters (`Br`, `SUPERFAT`). */
 export const PROJECT_CODE_PATTERN = /^[A-Za-z][A-Za-z0-9]{0,15}$/;
@@ -59,9 +59,14 @@ const BINDING_PATTERNS: Readonly<Record<BindingKey, (value: string) => boolean>>
   githubRepo: (v) => /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(v),
   actioProjectCode: (v) => PROJECT_CODE_PATTERN.test(v),
   anatomiaProject: (v) => /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(v),
+  excubitorService: (v) => /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(v),
+  lifecycleOverride: (v) => (LIFECYCLE_KINDS as readonly string[]).includes(v),
 };
 
-/** Validates the binding set. Empty values mean "not bound"; unknown keys are refused. */
+/**
+ * Validates the binding set. Empty values mean "not bound" (an empty lifecycleOverride means "judge
+ * automatically"); unknown keys are refused.
+ */
 export function validateBindings(raw: Readonly<Record<string, string | undefined>> | undefined): Result<ProjectBindings> {
   const out: Partial<Record<BindingKey, string>> = {};
   for (const [key, rawValue] of Object.entries(raw ?? {})) {
@@ -73,5 +78,6 @@ export function validateBindings(raw: Readonly<Record<string, string | undefined
     if (!BINDING_PATTERNS[bindingKey](value)) return fail('invalid_binding', `${key} の形式が不正です`);
     out[bindingKey] = value;
   }
-  return ok(out);
+  // Every kept value passed its pattern above, so lifecycleOverride is one of LIFECYCLE_KINDS.
+  return ok(out as ProjectBindings);
 }

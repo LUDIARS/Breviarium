@@ -21,6 +21,7 @@ export interface HealthReport {
     readonly elegantia: CapabilityState;
     readonly concordia: CapabilityState;
     readonly actio: CapabilityState;
+    readonly excubitor: CapabilityState;
     readonly voluptas: CapabilityState;
     readonly anatomiaCli: CapabilityState;
     readonly revisorCli: CapabilityState;
@@ -42,6 +43,7 @@ export function describeHealth(config: BreviariumConfig, startedAt: string): Hea
       elegantia: state(config.elegantiaUrl),
       concordia: state(config.concordiaUrl),
       actio: state(config.actioUrl),
+      excubitor: state(config.excubitorUrl),
       voluptas: state(config.voluptasDataDir),
       anatomiaCli: state(config.anatomiaCliPath),
       revisorCli: state(config.revisorCliPath),

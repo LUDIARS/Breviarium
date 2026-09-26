@@ -1,7 +1,7 @@
 // @implements SPEC-br-grading
 /**
  * Normalised evidence per source. Extractors (pure) produce these from raw source data;
- * snapshots store them; stage and grade rules read only these. Locations are
+ * snapshots store them; workflow and grade rules read only these. Locations are
  * repository-relative paths or API paths — never hosts, absolute paths or file names
  * that could carry personal data (BR-UX-4).
  */
@@ -18,6 +18,8 @@ export interface GitEvidence {
   /** null when HEAD is detached. */
   readonly branch: string | null;
   readonly tagCount: number;
+  /** Newest tag (by creation date) named `v` plus a digit (`v1.2.0`); null when there is none. */
+  readonly latestVersionTag: string | null;
 }
 
 export interface PraeformaEvidence {
@@ -268,8 +270,29 @@ export interface MergedPrReviewFact {
 export interface RevisorEvidence {
   /** GitHub repository (`owner/name`) the PRs belong to. */
   readonly repository: string;
+  /** Whether `revisor repo list --json` has the repository (Revisor registration). */
+  readonly registered: boolean;
+  /**
+   * `.revisor-version` as `revisor version show` reads it: `MAJOR.MINOR.PATCH` once Revisor released the
+   * project, `uninitialized` before; null when Revisor could not read it (the checkout is not version-managed).
+   */
+  readonly localVersion: string | null;
   /** The newest merged PRs, newest first by mergedAt. */
   readonly merged: readonly MergedPrReviewFact[];
+}
+
+/**
+ * The project's service in Excubitor's catalog (`GET /api/v1/services`): presence, state and autostart
+ * only. Host, pid, port, paths and the catalog entry itself are not kept.
+ */
+export interface ExcubitorEvidence {
+  /** Service code looked up (`bindings.excubitorService`, or the lower-case registered code). */
+  readonly service: string;
+  readonly found: boolean;
+  /** Excubitor's lower-case instance state (`running` / `stopped` / `crashed` / `unknown` …); null when not found. */
+  readonly state: string | null;
+  /** The catalog's `autostart`; null when not found or not stated. */
+  readonly autostart: boolean | null;
 }
 
 /** Concordia's domain-review posts for one Cc code (`GET /v1/domain-review/posts`): count and newest time only. */
@@ -279,7 +302,7 @@ export interface DomainReviewsEvidence {
   readonly latestPostedAt: string | null;
 }
 
-/** Everything the stage and grade rules may read. A null entry means "no usable evidence". */
+/** Everything the workflow and grade rules may read. A null entry means "no usable evidence". */
 export interface EvidenceBundle {
   readonly git: GitEvidence | null;
   readonly praeforma: PraeformaEvidence | null;
@@ -292,8 +315,10 @@ export interface EvidenceBundle {
   readonly concordia: ConcordiaEvidence | null;
   readonly domainReviews: DomainReviewsEvidence | null;
   readonly revisor: RevisorEvidence | null;
-  /** Sprints: graded (terpsichore) and shown, never tied to a workflow stage. */
+  /** Sprints: graded (terpsichore), shown, and the frame of the workflow's PDCA loop and lifecycle. */
   readonly actio: ActioEvidence | null;
+  /** The project's Excubitor service: whether it is operated (lifecycle `operating`). */
+  readonly excubitor: ExcubitorEvidence | null;
 }
 
 export const EMPTY_BUNDLE: EvidenceBundle = {
@@ -309,4 +334,5 @@ export const EMPTY_BUNDLE: EvidenceBundle = {
   domainReviews: null,
   revisor: null,
   actio: null,
+  excubitor: null,
 };

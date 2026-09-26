@@ -92,12 +92,11 @@ describe('config', () => {
     assert.equal(c.sourceTimeoutMs, 5000);
     assert.equal(c.refreshIntervalSec, 0);
     assert.equal(c.snapshotMaxAgeHours, 24);
-    assert.equal(c.staleAfterDays, 30);
-    assert.equal(c.staleCommitLagDays, 7);
     assert.equal(c.praeformaUrl, undefined);
     assert.equal(c.elegantiaUrl, undefined);
     assert.equal(c.concordiaUrl, undefined);
     assert.equal(c.actioUrl, undefined);
+    assert.equal(c.excubitorUrl, undefined);
     assert.equal(c.voluptasDataDir, undefined);
     assert.ok(c.access.hosts.has('127.0.0.1:4370'));
   });
@@ -115,6 +114,18 @@ describe('config', () => {
     assert.throws(() => loadConfig({ ...base, ACTIO_URL: 'ftp://x' }), ConfigError);
   });
 
+  it('reads EXCUBITOR_URL from the topology and lets BREVIARIUM_EXCUBITOR_URL win', () => {
+    assert.equal(loadConfig({ ...base, EXCUBITOR_URL: 'http://127.0.0.1:7/' }).excubitorUrl, 'http://127.0.0.1:7');
+    assert.equal(loadConfig({ ...base, EXCUBITOR_URL: 'http://127.0.0.1:7', BREVIARIUM_EXCUBITOR_URL: 'http://127.0.0.1:8' }).excubitorUrl, 'http://127.0.0.1:8');
+    assert.throws(() => loadConfig({ ...base, EXCUBITOR_URL: 'ftp://x' }), /EXCUBITOR_URL/);
+  });
+
+  it('no longer reads the retired stage staleness settings (the workflow has no stale state)', () => {
+    const c = loadConfig({ ...base, BREVIARIUM_STALE_AFTER_DAYS: '0', BREVIARIUM_STALE_COMMIT_LAG_DAYS: 'x', BREVIARIUM_REVIEW_STALE_DAYS: '-1' });
+    assert.equal(c.snapshotMaxAgeHours, 24);
+    for (const key of ['staleAfterDays', 'staleCommitLagDays', 'reviewStaleDays']) assert.equal(key in c, false, key);
+  });
+
   it('keeps the periodic refresh off unless set to 60 seconds or more', () => {
     assert.equal(loadConfig({ ...base, BR_REFRESH_INTERVAL_SEC: '600' }).refreshIntervalSec, 600);
     assert.equal(loadConfig({ ...base, BR_REFRESH_INTERVAL_SEC: '0' }).refreshIntervalSec, 0);
@@ -128,18 +139,15 @@ describe('config', () => {
     assert.throws(() => loadConfig({ ...base, BREVIARIUM_REFRESH_INTERVAL_SEC: '59' }), /BREVIARIUM_REFRESH_INTERVAL_SEC/);
   });
 
-  it('takes the Anatomia / Revisor CLIs only as absolute paths (unset = not connected) and the review threshold in days', () => {
+  it('takes the Anatomia / Revisor CLIs only as absolute paths (unset = not connected)', () => {
     const cli = join(tmpdir(), 'anatomia.mjs');
-    const c = loadConfig({ ...base, BREVIARIUM_ANATOMIA_CLI: cli, BREVIARIUM_REVISOR_CLI: join(tmpdir(), 'cli.mjs'), BREVIARIUM_REVIEW_STALE_DAYS: '14' });
+    const c = loadConfig({ ...base, BREVIARIUM_ANATOMIA_CLI: cli, BREVIARIUM_REVISOR_CLI: join(tmpdir(), 'cli.mjs') });
     assert.equal(c.anatomiaCliPath, cli);
     assert.equal(c.revisorCliPath, join(tmpdir(), 'cli.mjs'));
-    assert.equal(c.reviewStaleDays, 14);
     const unset = loadConfig(base);
     assert.equal(unset.anatomiaCliPath, undefined);
     assert.equal(unset.revisorCliPath, undefined);
-    assert.equal(unset.reviewStaleDays, 30);
     assert.throws(() => loadConfig({ ...base, BREVIARIUM_ANATOMIA_CLI: 'bin/anatomia.mjs' }), ConfigError);
-    assert.throws(() => loadConfig({ ...base, BREVIARIUM_REVIEW_STALE_DAYS: '0' }), ConfigError);
   });
 
   it('requires an absolute Voluptas data directory', () => {

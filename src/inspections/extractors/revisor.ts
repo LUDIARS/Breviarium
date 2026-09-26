@@ -72,15 +72,43 @@ function reviewFactOf(value: unknown, repository: string): Result<MergedPrReview
 }
 
 /**
- * Normalises the `revisor pr show <n> --json` outputs of the chosen PRs into gate and risk facts
- * (newest first). Titles, bodies, reviewer output and lifecycle messages are not kept.
+ * From `revisor repo list --json`: whether the repository is registered with Revisor. The listing
+ * carries each checkout's local root path; nothing but the repository name is compared.
  */
-export function extractRevisorEvidence(repository: string, shows: readonly unknown[]): Result<RevisorEvidence> {
+export function revisorRegistration(list: unknown, repository: string): Result<boolean> {
+  if (!Array.isArray(list)) return shape('repo list の出力が配列ではない');
+  return ok(list.some((item) => sameRepository(asRecord(item)?.['repository'], repository)));
+}
+
+const RELEASE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+const UNINITIALIZED = 'uninitialized';
+
+/**
+ * `revisor version show --repo <path>` output: the canonical `MAJOR.MINOR.PATCH` after a Revisor
+ * release, `uninitialized` before one; anything else (or no output) is unknown (null).
+ */
+export function revisorLocalVersion(stdout: string | null): string | null {
+  const value = stdout?.trim() ?? '';
+  return value === UNINITIALIZED || RELEASE_VERSION.test(value) ? value : null;
+}
+
+/** Facts from Revisor's registration and version file, gathered next to the merged PRs. */
+export interface RevisorProjectFacts {
+  readonly registered: boolean;
+  readonly localVersion: string | null;
+}
+
+/**
+ * Normalises the `revisor pr show <n> --json` outputs of the chosen PRs into gate and risk facts
+ * (newest first), next to the registration and the version file. Titles, bodies, reviewer output and
+ * lifecycle messages are not kept.
+ */
+export function extractRevisorEvidence(repository: string, shows: readonly unknown[], facts: RevisorProjectFacts): Result<RevisorEvidence> {
   const merged: MergedPrReviewFact[] = [];
   for (const show of shows) {
     const fact = reviewFactOf(show, repository);
     if (!fact.ok) return fact;
     merged.push(fact.value);
   }
-  return ok({ repository, merged: newestMergedFirst(merged).slice(0, MERGED_PR_LIMIT) });
+  return ok({ repository, registered: facts.registered, localVersion: facts.localVersion, merged: newestMergedFirst(merged).slice(0, MERGED_PR_LIMIT) });
 }
