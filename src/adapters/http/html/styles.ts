@@ -1,6 +1,7 @@
 // @implements SPEC-br-web-ui
 /**
- * Page CSS, mobile first (320px and up). The document never scrolls sideways; wide tables
+ * Page CSS, mobile first (320px and up). The document never scrolls sideways: nothing is hidden with
+ * `overflow-x:hidden` and nothing uses `white-space:nowrap`; flex rows wrap and their items may shrink. Wide tables
  * scroll inside their own box. Tap targets are at least 44px, inputs use 16px text.
  */
 export const TAP_PX = 44;
@@ -15,7 +16,7 @@ export const STYLE = `
   --g-A:#4ade80; --g-B:#60a5fa; --g-C:#f59e0b; --g-D:#f87171; --g-none:#94a3b8; } }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin:0; font-family: system-ui, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; font-size:15px; line-height:1.6; background:var(--bg); color:var(--fg); overflow-x:hidden; overflow-wrap:anywhere; }
+body { margin:0; font-family: system-ui, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; font-size:15px; line-height:1.6; background:var(--bg); color:var(--fg); overflow-wrap:anywhere; }
 h1 { font-size:20px; margin:0; } h2 { font-size:18px; margin:0 0 8px; } h3 { font-size:16px; margin:12px 0 6px; }
 p { margin:6px 0; }
 a { color:var(--accent); }
@@ -25,6 +26,7 @@ code { font-size:13px; overflow-wrap:anywhere; word-break:break-all; }
 .skip-link { position:absolute; left:8px; top:-60px; background:var(--card); padding:8px 12px; z-index:10; }
 .skip-link:focus { top:8px; }
 .topbar { padding:8px 16px; border-bottom:1px solid var(--line); background:var(--card); display:flex; flex-wrap:wrap; gap:4px 16px; align-items:center; justify-content:space-between; }
+.topbar > * { min-width:0; max-width:100%; }
 .topbar a { display:inline-flex; align-items:center; min-height:var(--tap); }
 main { padding:12px 16px 32px; max-width:1200px; margin:0 auto; }
 .banner { margin:0 0 12px; padding:10px 12px; border:1px solid currentColor; border-radius:8px; background:var(--card); }
@@ -34,14 +36,14 @@ main { padding:12px 16px 32px; max-width:1200px; margin:0 auto; }
 .project-head a { display:inline-flex; align-items:center; min-height:var(--tap); font-weight:600; font-size:17px; }
 .badge { display:inline-block; font-size:12px; border:1px solid currentColor; border-radius:10px; padding:0 8px; }
 .stage-bar { list-style:none; margin:8px 0; padding:0; display:grid; grid-template-columns:repeat(9, minmax(0,1fr)); gap:3px; }
-.stage-bar li { text-align:center; font-size:12px; padding:4px 0; border-radius:6px; border:1px solid var(--line); min-width:0; overflow:hidden; white-space:nowrap; }
+.stage-bar li { text-align:center; font-size:12px; padding:4px 0; border-radius:6px; border:1px solid var(--line); min-width:0; }
 .st-not-started { background:var(--s-not-started); } .st-in-progress { background:var(--s-in-progress); } .st-done { background:var(--s-done); } .st-stale { background:var(--s-stale); }
 .legend { font-size:12px; display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; }
 .legend span::before { content:""; display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:4px; vertical-align:middle; border:1px solid var(--line); }
 .legend .st-not-started::before { background:var(--s-not-started); } .legend .st-in-progress::before { background:var(--s-in-progress); } .legend .st-done::before { background:var(--s-done); } .legend .st-stale::before { background:var(--s-stale); }
 .legend span { background:none; }
 .chips { list-style:none; margin:6px 0; padding:0; display:flex; flex-wrap:wrap; gap:4px; }
-.chip { display:inline-flex; align-items:center; gap:4px; font-size:12px; border:1px solid var(--line); border-radius:12px; padding:2px 8px; }
+.chip { display:inline-flex; align-items:center; gap:4px; font-size:12px; border:1px solid var(--line); border-radius:12px; padding:2px 8px; min-width:0; max-width:100%; }
 .grade { font-weight:700; }
 .g-A { color:var(--g-A); } .g-B { color:var(--g-B); } .g-C { color:var(--g-C); } .g-D { color:var(--g-D); } .g-none { color:var(--g-none); }
 .timeline { list-style:none; margin:0; padding:0; display:grid; gap:6px; }

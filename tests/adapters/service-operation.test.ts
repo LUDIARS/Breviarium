@@ -45,9 +45,17 @@ describe('mobile layout rules', () => {
   it('keeps 44px tap targets, 16px inputs and no sideways document scroll', () => {
     assert.equal(TAP_PX, 44);
     assert.equal(INPUT_FONT_PX, 16);
-    assert.match(STYLE, /body \{[^}]*overflow-x:hidden/);
+    assert.doesNotMatch(STYLE, /overflow-x:hidden/);
     assert.match(STYLE, /\.table-scroll \{ overflow-x:auto/);
     assert.match(STYLE, /input, select \{[^}]*font-size:16px/);
+  });
+
+  it('wraps the header and chip rows instead of pushing them past the viewport', () => {
+    assert.doesNotMatch(STYLE, /nowrap/);
+    assert.match(STYLE, /\.topbar \{[^}]*flex-wrap:wrap/);
+    assert.match(STYLE, /\.topbar > \* \{ min-width:0; max-width:100%; \}/);
+    assert.match(STYLE, /\.chips \{[^}]*flex-wrap:wrap/);
+    assert.match(STYLE, /\.chip \{[^}]*min-width:0; max-width:100%;/);
   });
 });
 

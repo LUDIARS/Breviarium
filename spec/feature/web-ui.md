@@ -2,7 +2,7 @@
 
 価値: BR-UX-1〜4 の入口。所属ドメイン: platform-foundation (`src/adapters/http/**`、`tests/adapters/**`)。
 業務判断 (段判定・クラス判定・登録規則・鮮度) は各ドメインの純関数にあり、UI は複製しない。
-**以下の受入基準は設計案。単体テストで HTML の構造を確認済み、実機・ブラウザでの幅別実測は未実施。**
+**以下の受入基準は設計案。単体テストで HTML の構造を確認済み。幅別の実測は W-1 (headless Edge) のみ、実機は未実施。**
 
 ## 画面
 
@@ -51,7 +51,7 @@ summary.md / summary.json は画面と同じ overview から作る (スプリン
 
 | ID | 基準 | 確認方法 |
 |---|---|---|
-| W-1 | 幅 320px 以上で文書全体が横にはみ出さない (表は自身の枠内で横スクロール) | CSS の構造を単体テストで確認。ブラウザ実測は未実施 |
+| W-1 | 幅 320 / 390 / 768 / 1280px で横スクロールが出ない (`document.scrollingElement.scrollWidth <= clientWidth`。表は自身の枠内で横スクロール)。はみ出しを `overflow-x:hidden` で隠さず、ヘッダ右の文言・チップ行は折り返す (`flex-wrap:wrap` + `min-width:0`、`white-space:nowrap` を使わない) | CSS の構造を単体テストで確認 (nowrap・overflow-x:hidden が無い、wrap がある)。headless Edge で幅別の iframe に一覧・詳細を読み込み scrollWidth/clientWidth を実測 (2026-09-26、[task](../tasks/2026-09-26-breviarium-phone-overflow.md))。実機は未実施 |
 | W-2 | 主操作のタップ領域 44px 以上、入力欄の文字 16px 以上 | CSS 変数の単体テスト。実測は未実施 |
 | W-3 | 全入力に label、フォーカス表示 | 単体テスト (label の for と id の対応) |
 | W-4 | 利用者・ソース由来の文字列をエスケープする | 単体テスト (`<script>` を含む名前) |
