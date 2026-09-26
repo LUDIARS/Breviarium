@@ -61,4 +61,8 @@ button.danger { background:var(--bad); border-color:var(--bad); color:#fff; }
 .actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 details > summary { min-height:var(--tap); display:flex; align-items:center; cursor:pointer; font-weight:600; }
 .empty { padding:12px 0; }
+.sprint-team { border-top:1px solid var(--line); margin-top:10px; padding-top:6px; min-width:0; }
+.bars { display:grid; gap:6px; margin:6px 0; max-width:640px; }
+.bar { display:grid; gap:2px; font-size:13px; min-width:0; }
+progress { width:100%; max-width:100%; height:12px; accent-color:var(--accent); }
 `;

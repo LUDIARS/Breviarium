@@ -30,7 +30,7 @@
     { "source": "src/snapshots/domain/freshness.ts", "tests": ["tests/snapshots/snapshot-rules.test.ts", "tests/shared/contracts.test.ts"], "contracts": ["C-8"] },
     { "source": "src/snapshots/application/refresh-use-case.ts", "tests": ["tests/snapshots/refresh-use-case.test.ts", "tests/shared/contracts.test.ts"], "contracts": ["C-9"] },
     { "source": "src/snapshots/application/project-overview.ts", "tests": ["tests/snapshots/refresh-use-case.test.ts", "tests/shared/contracts.test.ts"], "contracts": ["C-10"] },
-    { "source": "src/shared/time.ts", "tests": ["tests/shared/time.test.ts"], "contracts": [] },
+    { "source": "src/shared/time.ts", "tests": ["tests/shared/time.test.ts", "tests/inspections/sprint-health.test.ts"], "contracts": [] },
     { "source": "src/adapters/config/load-config.ts", "tests": ["tests/adapters/storage-and-config.test.ts", "tests/adapters/cloudflare-access-config.test.ts", "tests/shared/contracts.test.ts"], "contracts": ["C-14"] },
     { "source": "src/adapters/config/source-urls.ts", "tests": ["tests/adapters/storage-and-config.test.ts"], "contracts": [] },
     { "source": "src/adapters/config/web-access.ts", "tests": ["tests/adapters/service-operation.test.ts", "tests/adapters/cloudflare-access-config.test.ts", "tests/adapters/cloudflare-access-guard.test.ts"], "contracts": [] },
@@ -41,7 +41,7 @@
     { "source": "src/adapters/sources/praeforma-source.ts", "tests": ["tests/adapters/sources.test.ts"], "contracts": [] },
     { "source": "src/adapters/sources/elegantia-source.ts", "tests": ["tests/adapters/sources.test.ts"], "contracts": [] },
     { "source": "src/adapters/sources/concordia-source.ts", "tests": ["tests/adapters/sources.test.ts"], "contracts": [] },
-    { "source": "src/adapters/sources/http-json.ts", "tests": ["tests/adapters/sources.test.ts"], "contracts": [] },
+    { "source": "src/adapters/sources/http-json.ts", "tests": ["tests/adapters/sources.test.ts", "tests/adapters/actio-source.test.ts"], "contracts": [] },
     { "source": "src/adapters/sources/repo-artifacts-source.ts", "tests": ["tests/adapters/sources.test.ts"], "contracts": [] },
     { "source": "src/adapters/sources/anatomia-source.ts", "tests": ["tests/adapters/sources.test.ts"], "contracts": [] },
     { "source": "src/adapters/sources/repo-files.ts", "tests": ["tests/adapters/sources.test.ts"], "contracts": [] },
@@ -102,6 +102,17 @@
     { "source": "contracts/admit-cloudflare-request.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-19"] },
     { "source": "contracts/admit-method.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-20"] },
     { "source": "contracts/render-project-page.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-21"] },
-    { "source": "contracts/render-index-page.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-22"] }
+    { "source": "contracts/render-index-page.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-22"] },
+    { "source": "src/inspections/extractors/actio.ts", "tests": ["tests/inspections/sprint-health.test.ts", "tests/adapters/actio-source.test.ts", "tests/shared/contracts.test.ts"], "contracts": ["C-23"] },
+    { "source": "src/inspections/domain/sprint-health.ts", "tests": ["tests/inspections/sprint-health.test.ts", "tests/shared/contracts.test.ts"], "contracts": ["C-24"] },
+    { "source": "src/inspections/domain/sprint-progress.ts", "tests": ["tests/inspections/sprint-health.test.ts", "tests/shared/contracts.test.ts"], "contracts": ["C-25"] },
+    { "source": "src/inspections/domain/sprint-inspections.ts", "tests": ["tests/inspections/sprint-health.test.ts", "tests/shared/contracts.test.ts"], "contracts": ["C-26"] },
+    { "source": "src/adapters/sources/actio-source.ts", "tests": ["tests/adapters/actio-source.test.ts", "tests/shared/contracts.test.ts"], "contracts": ["C-27"] },
+    { "source": "src/adapters/http/html/sprint-views.ts", "tests": ["tests/adapters/http-app.test.ts"], "contracts": [] },
+    { "source": "contracts/extract-actio-evidence.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-23"] },
+    { "source": "contracts/grade-sprint-health.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-24"] },
+    { "source": "contracts/elapsed-ratio.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-25"] },
+    { "source": "contracts/inspect-terpsichore.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-26"] },
+    { "source": "contracts/actio-sprints-path.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-27"] }
   ]
 }

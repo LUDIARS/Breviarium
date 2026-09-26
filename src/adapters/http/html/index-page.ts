@@ -6,6 +6,7 @@ import { esc } from './escape.ts';
 import { toolChips } from './inspection-views.ts';
 import { banners, page, type PageNotice } from './layout.ts';
 import { projectFields } from './project-form.ts';
+import { sprintChips } from './sprint-views.ts';
 import { stageBar, stageLegend } from './stage-views.ts';
 
 function projectCard(o: ProjectOverview): string {
@@ -17,7 +18,7 @@ function projectCard(o: ProjectOverview): string {
       : `<span class="warn">古い・未取得のソース ${o.staleSourceCount}/${o.sources.length}</span>`;
   return `<li class="card"><div class="project-head"><a href="${esc(href)}">${esc(o.project.name)}</a><code>${esc(o.project.code)}</code><span class="badge">${esc(o.project.classification)}</span></div>
 <p class="small">現在: ${esc(current)} ・ ${freshness}</p>
-${stageBar(o.stages)}${toolChips(o.tools)}</li>`;
+${stageBar(o.stages)}${toolChips(o.tools)}${sprintChips(o.sprints)}</li>`;
 }
 
 /**

@@ -20,10 +20,15 @@ describe('registration rules', () => {
     }
   });
 
+  it('accepts a Cc code as the Actio project code binding', () => {
+    assert.deepEqual(validateBindings({ actioProjectCode: ' KD ' }), { ok: true, value: { actioProjectCode: 'KD' } });
+    assert.deepEqual(validateBindings({ actioProjectCode: '' }), { ok: true, value: {} });
+  });
+
   it('validates bindings and treats empty values as unbound', () => {
     const ok = validateBindings({ praeformaProjectId: '01M2RZXD2WVGQP0NKXEE9WRYZ1', githubRepo: 'LUDIARS/Breviarium', voluptasPath: 'answers\\team', elegantiaProduct: '' });
     assert.deepEqual(ok, { ok: true, value: { praeformaProjectId: '01M2RZXD2WVGQP0NKXEE9WRYZ1', githubRepo: 'LUDIARS/Breviarium', voluptasPath: 'answers/team' } });
-    for (const bad of [{ unknown: 'x' }, { voluptasPath: '../secret' }, { voluptasPath: '/abs' }, { voluptasPath: 'E:/abs' }, { githubRepo: 'no-slash' }, { praeformaProjectId: 'has space' }]) {
+    for (const bad of [{ unknown: 'x' }, { voluptasPath: '../secret' }, { voluptasPath: '/abs' }, { voluptasPath: 'E:/abs' }, { githubRepo: 'no-slash' }, { praeformaProjectId: 'has space' }, { actioProjectCode: 'K-D' }, { actioProjectCode: '1KD' }]) {
       assert.equal(validateBindings(bad).ok, false, JSON.stringify(bad));
     }
   });

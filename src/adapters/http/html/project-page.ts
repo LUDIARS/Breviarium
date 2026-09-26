@@ -8,6 +8,7 @@ import { inspectionTable, toolChips } from './inspection-views.ts';
 import { banners, page, type PageNotice } from './layout.ts';
 import { projectFields } from './project-form.ts';
 import { sourceTable } from './source-views.ts';
+import { sprintSection } from './sprint-views.ts';
 import { stageTimeline } from './stage-views.ts';
 
 function header(o: ProjectOverview): string {
@@ -50,6 +51,7 @@ export function renderProjectPage(o: ProjectOverview, notice: PageNotice, level:
   const body = `${banners(notice)}${header(o)}
 <section class="card"><h2>ワークフロー段階</h2>${stageTimeline(o.stages)}</section>
 <section class="card"><h2>検査とクラス</h2><p class="small muted">— は未計測 (0 点や推測で埋めない)。クラス基準は spec/feature/grading.md。</p>${inspectionTable(o.inspections)}</section>
+${sprintSection(o.sprints)}
 ${refreshSection(o, local)}${local ? editSection(o) : ''}`;
   return page(`${o.project.name} (${o.project.code}) — Breviarium`, body, level);
 }

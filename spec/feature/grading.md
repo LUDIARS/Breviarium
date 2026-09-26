@@ -13,7 +13,7 @@ Inspection = { tool, kind, status, grade, score, scoreLabel, evidence[], measure
 - `status`: `graded` (A〜D を付けた) / `measured` (計測したがクラス基準が無い、または分母 0) / `not-measured` (未取得・未接続・API 未提供)。
 - `grade`: `A` / `B` / `C` / `D` / `—`。`graded` 以外は必ず `—`。**未計測を 0 点や推測で埋めない**
   (Omnipotens の not-requested と同じ方針)。
-- `score`: `graded` は比 (0〜1)、`measured` は件数などの主な値、`not-measured` は `null`。
+- `score`: `graded` は比 (0〜1。ただし `terpsichore/sprint-health` は消化率 − 経過率の差 −1〜1)、`measured` は件数などの主な値、`not-measured` は `null`。
 - `evidence[]`: 証跡の場所 (リポ相対パス、または API パス。ホスト名は含めない) と日時。
 - `measuredAt`: 証跡の計測日時 (ファイル mtime・testedAt・updatedAt)。
 - `commit`: リポのファイルを証跡にする検査 (anatomia / omnipotens / vitia / discutere) は、git スナップショットの HEAD sha
@@ -49,9 +49,28 @@ Inspection = { tool, kind, status, grade, score, scoreLabel, evidence[], measure
 | voluptas | survey | measured | JSON ファイル数と最新 mtime |
 | elegantia | quality | graded | `passed / (passed + failed + blocked + unverified)`。評価 0 件は measured。追加達成 (`additionalAchieved`) の割合は副スコアとして `scoreLabel` に出す |
 | concordia | harness | graded | `ddd_enabled` / `tests_required` / `domain_review` のうち有効な割合。open PR 数を `scoreLabel` に出す |
+| terpsichore | sprint-health | graded | Actio のアクティブなスプリントの消化率 − 経過率 (下の表)。未接続は not-measured、チーム 0 件・アクティブなスプリント無し・タスク 0 件は measured (—) |
 
 設計書の Vitia「audit.json の value/performance 二軸」は、実データでは audit が lens 別スコアを持ち、
 市場性は Omnipotens summary の `vitiaScores` にあるため、`ux` (audit) と `marketability` (summary) の二軸に対応付けた。
+
+## terpsichore/sprint-health (比の閾値を使わない唯一の検査)
+
+価値: BR-UX-5。詳細・契約・表示は [sprints](sprints.md)。関数は `gradeSprintHealth(consumption, elapsed, overdue)` (クラス) と
+`inspectTerpsichore(actio)` (チームの集約)。ワークフローの段には結び付けない。
+
+| クラス | 差 = 消化率 − 経過率 (1e-6 に丸める) |
+|---|---|
+| A | 0 以上 |
+| B | −0.15 以上 |
+| C | −0.30 以上 |
+| D | −0.30 未満 |
+| — | 消化率が無い (タスク 0 件)・アクティブなスプリントが無い・未接続 |
+
+- 消化率は project タスクの done / (total − cancelled)。project のタスクが 0 件ならスプリント全体で同じ計算。
+- 経過率は (today − startsOn) / (endsOn − startsOn) を 0..1 に丸める (today は Actio の集計日時 `generatedAt` の JST の日付)。
+- `overdue` > 0 なら 1 段下げる (A→B …、D は D)。
+- 複数チームは最も低いクラスを採り、証跡に各チームの sprint 名・期間・件数・クラスを並べる。
 
 ## ツールのまとめクラス
 

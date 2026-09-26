@@ -5,7 +5,7 @@
 # からのみ行い、worktree からは起動しない。
 #
 # ソースの URL は書かない。各サービス所有 catalog の `provides` (PRAEFORMA_URL /
-# CONCORDIA_URL / ELEGANTIA_URL) を Excubitor が topology env として注入し、loadConfig が
+# CONCORDIA_URL / ELEGANTIA_URL / ACTIO_URL) を Excubitor が topology env として注入し、loadConfig が
 # それを読む (BREVIARIUM_<SOURCE>_URL を明示した場合だけそちらを優先する)。
 # provides を持たないソースは「未接続」のまま動く (推測で URL を組み立てない)。
 #

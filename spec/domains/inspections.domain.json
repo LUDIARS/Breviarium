@@ -1,17 +1,19 @@
 {
   "name": "inspections",
-  "description": "検査とクラス評価 (business): ソースごとの生データを証跡へ正規化する extractor (純関数)、検査 (tool/kind/status/grade/score/evidence/measuredAt/commit) の組み立て、A/B/C/D/— のクラス閾値とツールのまとめクラスを所有する。未計測を 0 点や推測で埋めない。",
+  "description": "検査とクラス評価 (business): ソースごとの生データを証跡へ正規化する extractor (純関数)、検査 (tool/kind/status/grade/score/evidence/measuredAt/commit) の組み立て、A/B/C/D/— のクラス閾値とツールのまとめクラス、Actio スプリントの進捗 (消化率・経過率) と terpsichore/sprint-health のクラス規則 (BR-UX-5) を所有する。未計測を 0 点や推測で埋めない。",
   "presetRules": [],
   "templateRules": [],
   "membership": [
     { "pathPattern": "(^|/)src/inspections/(?:.*/)?[^/]+$" },
     { "pathPattern": "(^|/)tests/inspections/(?:.*/)?[^/]+$" },
     { "pathPattern": "^spec/feature/grading\\.md$" },
+    { "pathPattern": "^spec/feature/sprints\\.md$" },
     { "pathPattern": "^spec/domains/inspections\\.domain\\.json$" }
   ],
-  "cardTemplate": "Summarise the \"inspections\" domain: pure extractors from raw source data to evidence, inspection normalisation, the fixed A/B/C/D/— grade thresholds and the per-tool summary grade.",
+  "cardTemplate": "Summarise the \"inspections\" domain: pure extractors from raw source data to evidence, inspection normalisation, the fixed A/B/C/D/— grade thresholds, the per-tool summary grade, and the Actio sprint progress with the terpsichore/sprint-health class rule.",
   "specRefs": [
     "spec/ux/product.md",
-    "spec/feature/grading.md"
+    "spec/feature/grading.md",
+    "spec/feature/sprints.md"
   ]
 }

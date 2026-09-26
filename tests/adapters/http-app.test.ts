@@ -4,7 +4,7 @@ import { loadConfig } from '../../src/adapters/config/load-config.ts';
 import { createApp } from '../../src/adapters/http/create-app.ts';
 import { describeHealth, registerHealthRoute } from '../../src/adapters/http/health.ts';
 import type { AccessLevel, HttpRequest } from '../../src/adapters/http/http-types.ts';
-import { NOW, okSources, scriptedSource, testDeps } from '../support/fixtures.ts';
+import { actio, actioTeam, activeSprint, NOW, okSources, scriptedSource, testDeps } from '../support/fixtures.ts';
 
 function req(method: string, path: string, body?: unknown, contentType = 'application/json', accessLevel: AccessLevel = 'local'): HttpRequest {
   const url = new URL(path, 'http://localhost');
@@ -65,7 +65,7 @@ describe('refresh and overview API', () => {
   it('refreshes the requested sources and serves the overview from snapshots', async () => {
     const { app, sources } = await appWithProject();
     const before = JSON.parse((await app.handle(req('GET', '/api/projects/Br/overview'))).body) as { staleSourceCount: number };
-    assert.equal(before.staleSourceCount, 7);
+    assert.equal(before.staleSourceCount, 8);
     const refreshed = await app.handle(req('POST', '/api/projects/Br/refresh', { sources: ['git', 'praeforma'] }));
     assert.equal(refreshed.status, 200);
     assert.equal(sources.git.calls + sources.praeforma.calls, 2);
@@ -189,8 +189,17 @@ describe('health', () => {
     assert.equal(body.status, 'alive');
     assert.equal(body.sources['praeforma'], 'configured');
     assert.equal(body.sources['elegantia'], 'not_connected');
+    assert.equal(body.sources['actio'], 'not_connected');
     assert.equal(body.refresh.periodic, 'disabled');
     assert.doesNotMatch(res.body, /8889/);
+  });
+
+  it('reports the actio source as configured from ACTIO_URL without the URL', async () => {
+    const { deps } = testDeps();
+    const config = loadConfig({ BREVIARIUM_DATA_DIR: 'data', BREVIARIUM_HOST: '127.0.0.1', BREVIARIUM_PORT: '4370', ACTIO_URL: 'http://127.0.0.1:3000' });
+    const res = await registerHealthRoute(createApp(deps), describeHealth(config, NOW)).handle(req('GET', '/health'));
+    assert.equal((JSON.parse(res.body) as { sources: Record<string, string> }).sources['actio'], 'configured');
+    assert.doesNotMatch(res.body, /3000/);
   });
 
   it('reports whether Cloudflare Access is configured without the team, AUD or public URL', async () => {
@@ -242,5 +251,95 @@ describe('Cloudflare Access viewer', () => {
     assert.equal((await app.handle(viewerGet('/projects/Br/summary.json'))).status, 200);
     assert.equal((await app.handle(viewerGet('/api/projects'))).status, 200);
     assert.equal((await app.handle(viewerGet('/api/projects/Br/overview'))).status, 200);
+  });
+});
+
+describe('sprints (Terpsichore)', () => {
+  const withActio = (data: unknown) => ({ ...okSources(), actio: scriptedSource('actio', [{ kind: 'ok', data, subject: 'actio:Br' }]) });
+
+  it('shows 「未取得」 before any Actio snapshot, then a chip per active sprint on the project row', async () => {
+    const { app } = await appWithProject();
+    assert.match((await app.handle(req('GET', '/'))).body, /<li class="chip muted">スプリント: 未取得<\/li>/);
+    await app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    const res = await app.handle(req('GET', '/'));
+    assert.match(res.body, /<ul class="chips" aria-label="スプリント"><li class="chip" title="KonbiniDominant: 2026-09-22〜2026-10-05、クラス C">スプリント: Sprint 12 2\/7 \(経過 31%\)<\/li><\/ul>/);
+    assert.match(res.body, /Terpsichore <span class="grade g-C">C<\/span>/);
+  });
+
+  it('shows 「スプリントなし」 when no team has an active sprint', async () => {
+    const { app } = await appWithProject(withActio(actio({ teams: [actioTeam({ activeSprint: null })] })));
+    await app.handle(req('POST', '/api/projects/Br/refresh', { sources: ['actio'] }));
+    assert.match((await app.handle(req('GET', '/'))).body, /<li class="chip">スプリントなし<\/li>/);
+  });
+
+  it('shows the sprint section per team on the project page', async () => {
+    const { app } = await appWithProject();
+    await app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    const body = (await app.handle(req('GET', '/projects/Br'))).body;
+    assert.match(body, /<h2>スプリント \(Terpsichore: チームを回す\)<\/h2>/);
+    assert.match(body, /<h3>KonbiniDominant<\/h3>/);
+    assert.match(body, /<strong>Sprint 12<\/strong> <span class="grade g-C">C<\/span>/);
+    assert.match(body, /ゴール: goal text/);
+    assert.match(body, /開始 2026-09-22 \/ 終了 2026-10-05 \/ バッファ 2026-10-07 \(\+2 日\)/);
+    assert.match(body, /project: 完了 2\/7 \(29%\)<\/span><progress max="7" value="2"/);
+    assert.match(body, /スプリント全体: 完了 6\/18 \(33%\)<\/span><progress max="18" value="6"/);
+    assert.match(body, /経過: 31% \(残 9 日\)<\/span><progress max="100" value="31"/);
+    assert.match(body, /クリティカルパス 3 件/);
+    assert.match(body, /人間 10 件 \/ AI 8 件/);
+    assert.match(body, /<li class="warn">期限超過 1 件<\/li>/);
+    assert.match(body, /<li>Sprint 13 \(2026-10-06〜2026-10-19\)<\/li>/);
+    assert.match(body, /未割付バックログ: 25 件 \(うちこのプロジェクト 9 件\)/);
+  });
+
+  it('says so instead of showing an empty board when Actio is not connected or no team is assigned', async () => {
+    const notConnected = await appWithProject({ ...okSources(), actio: scriptedSource('actio', [{ kind: 'not-connected', reason: 'ACTIO_URL が未設定' }]) });
+    await notConnected.app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    assert.match((await notConnected.app.handle(req('GET', '/projects/Br'))).body, /Actio のスナップショットがありません \(未接続・未取得\)/);
+    const noTeam = await appWithProject(withActio(actio({ teams: [] })));
+    await noTeam.app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    assert.match((await noTeam.app.handle(req('GET', '/projects/Br'))).body, /割り当てられたチームはありません/);
+  });
+
+  it('shows the same section to a Cloudflare Access viewer, read-only', async () => {
+    const { app } = await appWithProject();
+    await app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    const res = await app.handle(viewerGet('/projects/Br'));
+    assert.equal(res.status, 200);
+    assert.match(res.body, /スプリント \(Terpsichore: チームを回す\)/);
+    assert.match(res.body, /<progress max="7" value="2"/);
+    assert.doesNotMatch(res.body, /<form/);
+    assert.match((await app.handle(viewerGet('/'))).body, /スプリント: Sprint 12 2\/7/);
+  });
+
+  it('escapes sprint and team text', async () => {
+    const hostile = actio({ teams: [actioTeam({ teamName: '<script>t</script>', activeSprint: activeSprint({ name: '<img src=x>', goal: '"><b>' }) })] });
+    const { app } = await appWithProject(withActio(hostile));
+    await app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    for (const path of ['/', '/projects/Br']) {
+      const body = (await app.handle(req('GET', path))).body;
+      assert.doesNotMatch(body, /<script>t|<img src=x>|"><b>/);
+    }
+  });
+
+  it('writes the sprint section into summary.md and summary.json without ids', async () => {
+    const { app } = await appWithProject();
+    await app.handle(req('POST', '/api/projects/Br/refresh', {}));
+    const md = (await app.handle(req('GET', '/projects/Br/summary.md'))).body;
+    assert.match(md, /## スプリント \(Terpsichore: チームを回す\)/);
+    assert.match(md, /\| KonbiniDominant \| Sprint 12 \| goal text \| 2026-09-22〜2026-10-05 \/ 2026-10-07 \(\+2 日\) \| 2\/7 \(29%\) \| 6\/18 \(33%\) \| 31% \(残 9 日\) \| C \|/);
+    assert.match(md, /\| KonbiniDominant \| 3 \| 10 \/ 8 \| 1 \| Sprint 13 \(2026-10-06〜2026-10-19\) \| 25 \/ 9 \|/);
+    const json = (await app.handle(req('GET', '/projects/Br/summary.json'))).body;
+    const summary = JSON.parse(json) as { sprints: { today: string; teams: { teamName: string; activeSprint: { grade: string; project: object; remainingDays: number } }[] } };
+    assert.equal(summary.sprints.today, '2026-09-26');
+    assert.equal(summary.sprints.teams[0]?.activeSprint.grade, 'C');
+    assert.deepEqual(summary.sprints.teams[0]?.activeSprint.project, { done: 2, total: 7, cancelled: 0 });
+    for (const id of ['team_x', 'sprint_x', 'sprint_y']) assert.doesNotMatch(json, new RegExp(id));
+  });
+
+  it('exports sprints as null and says so in Markdown before any Actio snapshot', async () => {
+    const { app } = await appWithProject();
+    const md = (await app.handle(req('GET', '/projects/Br/summary.md'))).body;
+    assert.match(md, /Actio のスナップショットなし \(未接続・未取得\)/);
+    assert.equal((JSON.parse((await app.handle(req('GET', '/projects/Br/summary.json'))).body) as { sprints: unknown }).sprints, null);
   });
 });

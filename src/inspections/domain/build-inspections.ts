@@ -4,6 +4,7 @@ import type { Inspection } from './model.ts';
 import { inspectPraeforma } from './praeforma-inspections.ts';
 import { inspectAnatomia, inspectDiscutere, inspectOmnipotens, inspectVitia } from './repo-inspections.ts';
 import { inspectConcordia, inspectElegantia, inspectVoluptas } from './service-inspections.ts';
+import { inspectTerpsichore } from './sprint-inspections.ts';
 
 /**
  * Normalises every source's evidence into inspections, in a fixed tool order.
@@ -20,5 +21,6 @@ export function buildInspections(bundle: EvidenceBundle): Inspection[] {
     ...inspectVoluptas(bundle.voluptas),
     ...inspectElegantia(bundle.elegantia),
     ...inspectConcordia(bundle.concordia),
+    ...inspectTerpsichore(bundle.actio),
   ];
 }

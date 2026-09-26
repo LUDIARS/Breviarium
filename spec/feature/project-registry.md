@@ -7,7 +7,7 @@
 
 ```
 Project = { code, name, repoPath, classification, bindings, registeredAt, updatedAt }
-bindings = { praeformaProjectId?, elegantiaProduct?, voluptasPath?, githubRepo? }
+bindings = { praeformaProjectId?, elegantiaProduct?, voluptasPath?, githubRepo?, actioProjectCode? }
 ```
 
 ## 規則
@@ -22,6 +22,7 @@ bindings = { praeformaProjectId?, elegantiaProduct?, voluptasPath?, githubRepo? 
 | bindings.elegantiaProduct | 英数字・`_`・`-`・`.` 1〜160 文字 | `invalid_binding` |
 | bindings.voluptasPath | 相対パス。区間は英数字・`_`・`-`・`.` (ただし `.` / `..` 単独は不可)、200 文字以内。`BREVIARIUM_VOLPUTAS_DATA_DIR` の外へ出られない | `invalid_binding` |
 | bindings.githubRepo | `owner/name` | `invalid_binding` |
+| bindings.actioProjectCode | Actio (Cc 同期) が知る Cc の略称。code と同じ形式 (英字で始まる英数字 1〜16 文字)。未登録なら登録 code で Actio のスプリントを読む ([sprints](sprints.md)) | `invalid_binding` |
 | (未知の binding キー) | 受け付けない | `invalid_binding` |
 
 - 更新 (`planUpdate`) は code を変えない。bindings を渡したときは丸ごと置き換える (部分更新しない)。

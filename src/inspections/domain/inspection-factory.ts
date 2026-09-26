@@ -1,6 +1,6 @@
 // @implements SPEC-br-grading
 import { gradeRatio } from './grading.ts';
-import type { EvidenceRef, Inspection, ToolId } from './model.ts';
+import type { EvidenceRef, Grade, Inspection, ToolId } from './model.ts';
 
 interface Base {
   readonly tool: ToolId;
@@ -19,6 +19,11 @@ function base(b: Base): Pick<Inspection, 'tool' | 'kind' | 'evidence' | 'measure
 export function graded(b: Base & { readonly ratio: number | null; readonly scoreLabel: string; readonly fallbackScore?: number | null }): Inspection {
   if (b.ratio === null || !Number.isFinite(b.ratio)) return measured({ ...b, score: b.fallbackScore ?? null });
   return { ...base(b), status: 'graded', grade: gradeRatio(b.ratio), score: b.ratio, scoreLabel: b.scoreLabel };
+}
+
+/** A class decided by a rule of its own (not a ratio threshold); `score` is the value the rule compared. */
+export function classified(b: Base & { readonly grade: Exclude<Grade, '—'>; readonly score: number; readonly scoreLabel: string }): Inspection {
+  return { ...base(b), status: 'graded', grade: b.grade, score: b.score, scoreLabel: b.scoreLabel };
 }
 
 /** Measured without a class rule: always `—`. */

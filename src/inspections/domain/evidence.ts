@@ -161,6 +161,68 @@ export interface ConcordiaEvidence {
   readonly pullRequests: { readonly open: readonly PullRequestFact[]; readonly merged: readonly PullRequestFact[] } | null;
 }
 
+/** Task counts keyed by Actio's own task status values (`todo` / `in_progress` / `review` / `done` / `cancelled` …). */
+export type StatusCounts = Readonly<Record<string, number>>;
+
+/**
+ * Task counts of one sprint. Counts only: Actio's aggregate carries no task text, title,
+ * assignee or task id, and neither does the evidence.
+ */
+export interface SprintTaskCounts {
+  /** Whole sprint (every project's tasks in it). */
+  readonly total: number;
+  readonly byStatus: StatusCounts;
+  /** Tasks of the requested project only. */
+  readonly project: { readonly total: number; readonly byStatus: StatusCounts };
+  readonly criticalPath: number;
+  readonly byExecutor: { readonly human: number; readonly ai: number };
+  /** Not finished and past their deadline. */
+  readonly overdue: number;
+  readonly estimatedMinutes: number | null;
+  readonly doneMinutes: number | null;
+}
+
+export interface ActiveSprintFact {
+  readonly id: string;
+  readonly name: string;
+  readonly goal: string | null;
+  readonly status: string;
+  /** Calendar dates `YYYY-MM-DD`. */
+  readonly startsOn: string;
+  readonly endsOn: string;
+  readonly originalEndsOn: string | null;
+  readonly bufferEndsOn: string | null;
+  readonly cadenceDays: number | null;
+  readonly capacityMinutes: number | null;
+  readonly revision: number | null;
+  readonly tasks: SprintTaskCounts;
+}
+
+export interface PlanningSprintFact {
+  readonly id: string;
+  readonly name: string;
+  readonly startsOn: string | null;
+  readonly endsOn: string | null;
+}
+
+export interface ActioTeamFact {
+  readonly teamId: string;
+  readonly teamName: string;
+  /** null when the team has no active sprint. */
+  readonly activeSprint: ActiveSprintFact | null;
+  readonly planningSprints: readonly PlanningSprintFact[];
+  readonly backlogUnassigned: { readonly total: number; readonly project: number };
+}
+
+/** Actio's sprint aggregate for one Cc code (`GET /api/projects/cc/:code/sprints`), kept in the contract's shape. */
+export interface ActioEvidence {
+  /** The Cc code Actio answered for. */
+  readonly project: string;
+  readonly generatedAt: string;
+  /** Teams assigned to the project; empty when none is. */
+  readonly teams: readonly ActioTeamFact[];
+}
+
 /** Everything the stage and grade rules may read. A null entry means "no usable evidence". */
 export interface EvidenceBundle {
   readonly git: GitEvidence | null;
@@ -170,6 +232,8 @@ export interface EvidenceBundle {
   readonly voluptas: VoluptasEvidence | null;
   readonly elegantia: ElegantiaEvidence | null;
   readonly concordia: ConcordiaEvidence | null;
+  /** Sprints: graded (terpsichore) and shown, never tied to a workflow stage. */
+  readonly actio: ActioEvidence | null;
 }
 
 export const EMPTY_BUNDLE: EvidenceBundle = {
@@ -180,4 +244,5 @@ export const EMPTY_BUNDLE: EvidenceBundle = {
   voluptas: null,
   elegantia: null,
   concordia: null,
+  actio: null,
 };

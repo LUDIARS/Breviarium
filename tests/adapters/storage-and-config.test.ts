@@ -97,6 +97,7 @@ describe('config', () => {
     assert.equal(c.praeformaUrl, undefined);
     assert.equal(c.elegantiaUrl, undefined);
     assert.equal(c.concordiaUrl, undefined);
+    assert.equal(c.actioUrl, undefined);
     assert.equal(c.voluptasDataDir, undefined);
     assert.ok(c.access.hosts.has('127.0.0.1:4370'));
   });
@@ -106,6 +107,12 @@ describe('config', () => {
     assert.equal(c.praeformaUrl, 'http://127.0.0.1:1');
     assert.equal(c.concordiaUrl, 'http://127.0.0.1:3');
     assert.throws(() => loadConfig({ ...base, ELEGANTIA_URL: 'ftp://x' }), ConfigError);
+  });
+
+  it('reads ACTIO_URL from the topology and lets BREVIARIUM_ACTIO_URL win', () => {
+    assert.equal(loadConfig({ ...base, ACTIO_URL: 'http://127.0.0.1:5/' }).actioUrl, 'http://127.0.0.1:5');
+    assert.equal(loadConfig({ ...base, ACTIO_URL: 'http://127.0.0.1:5', BREVIARIUM_ACTIO_URL: 'http://127.0.0.1:6' }).actioUrl, 'http://127.0.0.1:6');
+    assert.throws(() => loadConfig({ ...base, ACTIO_URL: 'ftp://x' }), ConfigError);
   });
 
   it('keeps the periodic refresh off unless set to 60 seconds or more', () => {

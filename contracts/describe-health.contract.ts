@@ -13,6 +13,7 @@ export default {
       [config.praeformaUrl, report.sources.praeforma],
       [config.elegantiaUrl, report.sources.elegantia],
       [config.concordiaUrl, report.sources.concordia],
+      [config.actioUrl, report.sources.actio],
       [config.voluptasDataDir, report.sources.voluptas],
       [config.cloudflareAccess, report.access.cloudflareAccess],
     ];
@@ -22,6 +23,7 @@ export default {
       config.praeformaUrl,
       config.elegantiaUrl,
       config.concordiaUrl,
+      config.actioUrl,
       config.voluptasDataDir,
       config.dataDir,
       config.access.publicOrigin,

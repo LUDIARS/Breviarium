@@ -15,8 +15,8 @@ src/
   adapters/
     config/          loadConfig (catalog env → 既定値はこのファイル)、Web 入口の Host/Origin・公開 URL・Cloudflare Access 設定
     storage/         JSON ファイル (data/projects.json、data/snapshots/<code>/<source>.json)
-    sources/         git / praeforma / anatomia / repo-artifacts / voluptas / elegantia / concordia
-    http/            ルータ・API・画面 (一覧 / 詳細)・エクスポート (summary.md / summary.json)・入口 (Access 検証・アクセスレベル)
+    sources/         git / praeforma / anatomia / repo-artifacts / voluptas / elegantia / concordia / actio
+    http/            ルータ・API・画面 (一覧 / 詳細、スプリント表示を含む)・エクスポート (summary.md / summary.json)・入口 (Access 検証・アクセスレベル)
     scheduler/       任意の定期更新 (既定は無効)
   main.ts            composition root
 ```
@@ -47,6 +47,7 @@ adapters/storage ──▶ registry/ports, snapshots/ports
 | repo-artifacts | repoPath の README・`spec/feature`・`spec/plan/NN-*.md`・`spec/data/omnipotens-*.json`・`vitia-game-experience-audit.json`・`report/omnipotens-final.html` | 登録の repoPath | しない |
 | voluptas | `BREVIARIUM_VOLPUTAS_DATA_DIR` 配下の bindings.voluptasPath の JSON ファイル数と最新 mtime | 同左 | しない |
 | elegantia | `GET /api/overview?product=<product>` | `BREVIARIUM_ELEGANTIA_URL` → `ELEGANTIA_URL`、bindings.elegantiaProduct | しない |
+| actio | `GET /api/projects/cc/<code>/sprints` (スプリント集計、[sprints](../feature/sprints.md)) | `BREVIARIUM_ACTIO_URL` → `ACTIO_URL`、bindings.actioProjectCode (無ければ登録 code) | しない |
 | concordia | `GET /v1/project-codes`、`GET /v1/prs?repository=<owner/name>` (応答を `repo_origin` で絞る) | `BREVIARIUM_CONCORDIA_URL` → `CONCORDIA_URL`、bindings.githubRepo | しない |
 
 URL が未設定・binding が未登録のソースは `not-connected` として記録し、推測で URL やプロジェクトを当てない。

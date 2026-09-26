@@ -1,6 +1,9 @@
 import type { AppDeps } from '../../src/adapters/http/app-deps.ts';
 import { MemoryProjectStore, MemorySnapshotStore } from '../../src/adapters/storage/memory-stores.ts';
 import type {
+  ActioEvidence,
+  ActioTeamFact,
+  ActiveSprintFact,
   AnatomiaEvidence,
   ConcordiaEvidence,
   ElegantiaEvidence,
@@ -8,6 +11,7 @@ import type {
   GitEvidence,
   PraeformaEvidence,
   RepoArtifactsEvidence,
+  SprintTaskCounts,
   VoluptasEvidence,
 } from '../../src/inspections/domain/evidence.ts';
 import type { Project } from '../../src/registry/domain/model.ts';
@@ -136,6 +140,93 @@ export function concordia(overrides: Partial<ConcordiaEvidence> = {}): Concordia
   };
 }
 
+/** Actio's contract example (`GET /api/projects/cc/KD/sprints`), as Actio sends it. */
+export function actioResponse(): Record<string, unknown> {
+  return {
+    project: 'KD',
+    generatedAt: '2026-09-26T03:00:00.000Z',
+    teams: [
+      {
+        teamId: 'team_x',
+        teamName: 'KonbiniDominant',
+        activeSprint: {
+          id: 'sprint_x',
+          name: 'Sprint 12',
+          goal: 'goal text',
+          status: 'active',
+          startsOn: '2026-09-22',
+          endsOn: '2026-10-05',
+          originalEndsOn: '2026-10-05',
+          bufferEndsOn: '2026-10-07',
+          cadenceDays: 14,
+          capacityMinutes: 4800,
+          revision: 3,
+          tasks: {
+            total: 18,
+            byStatus: { todo: 6, in_progress: 4, review: 2, done: 6 },
+            project: { total: 7, byStatus: { todo: 2, in_progress: 2, review: 1, done: 2 } },
+            criticalPath: 3,
+            byExecutor: { human: 10, ai: 8 },
+            overdue: 1,
+            estimatedMinutes: 4200,
+            doneMinutes: 1500,
+          },
+        },
+        planningSprints: [{ id: 'sprint_y', name: 'Sprint 13', startsOn: '2026-10-06', endsOn: '2026-10-19' }],
+        backlogUnassigned: { total: 25, project: 9 },
+      },
+    ],
+  };
+}
+
+export function sprintTasks(overrides: Partial<SprintTaskCounts> = {}): SprintTaskCounts {
+  return {
+    total: 18,
+    byStatus: { todo: 6, in_progress: 4, review: 2, done: 6 },
+    project: { total: 7, byStatus: { todo: 2, in_progress: 2, review: 1, done: 2 } },
+    criticalPath: 3,
+    byExecutor: { human: 10, ai: 8 },
+    overdue: 1,
+    estimatedMinutes: 4200,
+    doneMinutes: 1500,
+    ...overrides,
+  };
+}
+
+export function activeSprint(overrides: Partial<ActiveSprintFact> = {}): ActiveSprintFact {
+  return {
+    id: 'sprint_x',
+    name: 'Sprint 12',
+    goal: 'goal text',
+    status: 'active',
+    startsOn: '2026-09-22',
+    endsOn: '2026-10-05',
+    originalEndsOn: '2026-10-05',
+    bufferEndsOn: '2026-10-07',
+    cadenceDays: 14,
+    capacityMinutes: 4800,
+    revision: 3,
+    tasks: sprintTasks(),
+    ...overrides,
+  };
+}
+
+export function actioTeam(overrides: Partial<ActioTeamFact> = {}): ActioTeamFact {
+  return {
+    teamId: 'team_x',
+    teamName: 'KonbiniDominant',
+    activeSprint: activeSprint(),
+    planningSprints: [{ id: 'sprint_y', name: 'Sprint 13', startsOn: '2026-10-06', endsOn: '2026-10-19' }],
+    backlogUnassigned: { total: 25, project: 9 },
+    ...overrides,
+  };
+}
+
+/** Actio evidence counted on 2026-09-26 (JST): Sprint 12 is 4 of 13 days in, the project 2/7 done, 1 overdue → C. */
+export function actio(overrides: Partial<ActioEvidence> = {}): ActioEvidence {
+  return { project: 'KD', generatedAt: '2026-09-26T03:00:00.000Z', teams: [actioTeam()], ...overrides };
+}
+
 export function fullBundle(overrides: Partial<EvidenceBundle> = {}): EvidenceBundle {
   return {
     git: git(),
@@ -145,6 +236,7 @@ export function fullBundle(overrides: Partial<EvidenceBundle> = {}): EvidenceBun
     voluptas: voluptas(),
     elegantia: elegantia(),
     concordia: concordia(),
+    actio: actio(),
     ...overrides,
   };
 }
@@ -172,6 +264,7 @@ const EVIDENCE: Readonly<Record<SourceId, unknown>> = {
   voluptas: voluptas(),
   elegantia: elegantia(),
   concordia: concordia(),
+  actio: actio(),
 };
 
 export function okSources(): Record<SourceId, SourceAdapter & { calls: number }> {
@@ -184,6 +277,7 @@ export function okSources(): Record<SourceId, SourceAdapter & { calls: number }>
     voluptas: make('voluptas'),
     elegantia: make('elegantia'),
     concordia: make('concordia'),
+    actio: make('actio'),
   };
 }
 

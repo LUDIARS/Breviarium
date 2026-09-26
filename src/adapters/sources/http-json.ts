@@ -1,7 +1,33 @@
 // @implements SPEC-br-architecture
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
-export class SourceFetchError extends Error {}
+export class SourceFetchError extends Error {
+  /** HTTP status when the source answered with an error; undefined for transport failures. */
+  readonly status: number | undefined;
+  /** The `error` code of a JSON error body (e.g. `unknown_project`), only when it is a plain identifier. */
+  readonly code: string | undefined;
+
+  constructor(message: string, status?: number, code?: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+/** Error codes are short identifiers; free text from an error body is never kept (it could carry anything). */
+const ERROR_CODE = /^[a-z][a-z0-9_]{0,63}$/;
+
+async function errorCodeOf(response: Response): Promise<string | undefined> {
+  if (!(response.headers.get('content-type') ?? '').toLowerCase().includes('json')) return undefined;
+  try {
+    const body = JSON.parse(await response.text()) as unknown;
+    const code = body !== null && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>)['error'] : undefined;
+    return typeof code === 'string' && ERROR_CODE.test(code) ? code : undefined;
+  } catch {
+    // An unreadable error body only loses the code; the HTTP status still reports the failure.
+    return undefined;
+  }
+}
 
 export interface HttpSourceOptions {
   readonly baseUrl: string;
@@ -27,7 +53,10 @@ export async function getJson(options: HttpSourceOptions, path: string): Promise
     if (name === 'TimeoutError' || name === 'AbortError') throw new SourceFetchError(`GET ${path}: ${options.timeoutMs}ms でタイムアウト`);
     throw new SourceFetchError(`GET ${path}: 接続できない`);
   }
-  if (!response.ok) throw new SourceFetchError(`GET ${path}: HTTP ${response.status}`);
+  if (!response.ok) {
+    const code = await errorCodeOf(response);
+    throw new SourceFetchError(`GET ${path}: HTTP ${response.status}${code ? ` (${code})` : ''}`, response.status, code);
+  }
   const type = response.headers.get('content-type') ?? '';
   if (!type.toLowerCase().includes('json')) throw new SourceFetchError(`GET ${path}: JSON ではない応答 (${type.split(';')[0] || 'content-type なし'})`);
   const text = await response.text();

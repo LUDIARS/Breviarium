@@ -1,6 +1,7 @@
 // @implements SPEC-br-architecture
 import type { SourceRegistry } from '../../snapshots/ports.ts';
 import type { BreviariumConfig } from '../config/load-config.ts';
+import { createActioSource } from './actio-source.ts';
 import { createAnatomiaSource } from './anatomia-source.ts';
 import { createConcordiaSource } from './concordia-source.ts';
 import { createElegantiaSource } from './elegantia-source.ts';
@@ -10,9 +11,9 @@ import { createPraeformaSource } from './praeforma-source.ts';
 import { createRepoArtifactsSource } from './repo-artifacts-source.ts';
 import { createVoluptasSource } from './voluptas-source.ts';
 
-type SourceConfig = Pick<BreviariumConfig, 'sourceTimeoutMs' | 'praeformaUrl' | 'elegantiaUrl' | 'concordiaUrl' | 'voluptasDataDir'>;
+type SourceConfig = Pick<BreviariumConfig, 'sourceTimeoutMs' | 'praeformaUrl' | 'elegantiaUrl' | 'concordiaUrl' | 'actioUrl' | 'voluptasDataDir'>;
 
-/** All seven sources from configuration. Unconfigured HTTP sources report "not connected". */
+/** All eight sources from configuration. Unconfigured HTTP sources report "not connected". */
 export function createSources(config: SourceConfig, fetchImpl: FetchLike): SourceRegistry {
   const http = (baseUrl: string | undefined): HttpSourceOptions | undefined =>
     baseUrl ? { baseUrl, fetchImpl, timeoutMs: config.sourceTimeoutMs } : undefined;
@@ -24,5 +25,6 @@ export function createSources(config: SourceConfig, fetchImpl: FetchLike): Sourc
     voluptas: createVoluptasSource(config.voluptasDataDir),
     elegantia: createElegantiaSource(http(config.elegantiaUrl)),
     concordia: createConcordiaSource(http(config.concordiaUrl)),
+    actio: createActioSource(http(config.actioUrl)),
   };
 }

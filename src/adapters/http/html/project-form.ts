@@ -23,5 +23,6 @@ export function projectFields(idPrefix: string, project?: Project): string {
     field(`${idPrefix}-el`, 'elegantiaProduct', 'Elegantia product (任意)', b.elegantiaProduct ?? '', 'maxlength="160" autocomplete="off"'),
     field(`${idPrefix}-vo`, 'voluptasPath', 'Voluptas データの相対パス (任意)', b.voluptasPath ?? '', 'maxlength="200" autocomplete="off"'),
     field(`${idPrefix}-gh`, 'githubRepo', 'GitHub リポ owner/name (任意、PR の照合に使う)', b.githubRepo ?? '', 'maxlength="201" autocomplete="off"'),
+    field(`${idPrefix}-ac`, 'actioProjectCode', 'Actio の Cc 略称 (任意、未入力なら code でスプリントを読む)', b.actioProjectCode ?? '', 'maxlength="16" pattern="[A-Za-z][A-Za-z0-9]{0,15}" autocomplete="off"'),
   ].join('');
 }

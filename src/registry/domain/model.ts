@@ -10,9 +10,11 @@ export interface ProjectBindings {
   readonly elegantiaProduct?: string;
   readonly voluptasPath?: string;
   readonly githubRepo?: string;
+  /** Cc code Actio knows the project by, when it differs from the registered code. */
+  readonly actioProjectCode?: string;
 }
 
-export const BINDING_KEYS = ['praeformaProjectId', 'elegantiaProduct', 'voluptasPath', 'githubRepo'] as const;
+export const BINDING_KEYS = ['praeformaProjectId', 'elegantiaProduct', 'voluptasPath', 'githubRepo', 'actioProjectCode'] as const;
 
 export type BindingKey = (typeof BINDING_KEYS)[number];
 

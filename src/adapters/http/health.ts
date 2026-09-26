@@ -20,6 +20,7 @@ export interface HealthReport {
     readonly praeforma: CapabilityState;
     readonly elegantia: CapabilityState;
     readonly concordia: CapabilityState;
+    readonly actio: CapabilityState;
     readonly voluptas: CapabilityState;
   };
   readonly refresh: { readonly periodic: 'disabled' | 'enabled'; readonly intervalSec: number };
@@ -38,6 +39,7 @@ export function describeHealth(config: BreviariumConfig, startedAt: string): Hea
       praeforma: state(config.praeformaUrl),
       elegantia: state(config.elegantiaUrl),
       concordia: state(config.concordiaUrl),
+      actio: state(config.actioUrl),
       voluptas: state(config.voluptasDataDir),
     },
     refresh: { periodic: config.refreshIntervalSec > 0 ? 'enabled' : 'disabled', intervalSec: config.refreshIntervalSec },

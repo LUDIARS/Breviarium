@@ -20,6 +20,7 @@ LUDIARS の各プロジェクトが「ワークフローのどこにいて」「
 | BR-UX-2 | 各プロジェクトが「どの検査を受け、どのクラス評価か」を根拠 (証跡の場所・計測日時・対象 commit) 付きで分かる | inspections |
 | BR-UX-3 | 表示は常にツール側キャッシュから出る。各ソースの取得日時と鮮度が見え、更新は明示操作 (または定期) で行う | snapshots |
 | BR-UX-4 | 公開 (Internal) 前提: 秘匿語・個人データ・秘密を持たない。data/ は Git 管理外、要約は Markdown/JSON で書き出せる。Internal 公開は Cloudflare Access 検証済みの閲覧専用 (書き込みは loopback だけ) | platform-foundation, snapshots |
+| BR-UX-5 | 各プロジェクトの現在スプリントの健全さ (消化 vs 経過) が一枚で分かる。スプリントの正本は Actio で、Breviarium は集計だけをキャッシュから出す (MUSA Terpsichore の席「チームを回す」) | inspections, snapshots, platform-foundation |
 
 ## 不変条件
 
@@ -30,6 +31,8 @@ LUDIARS の各プロジェクトが「ワークフローのどこにいて」「
 - **分類 (BR-UX-4)**: data/ は `.gitignore` 済み。コードと spec に秘匿語・個人情報・トークンを書かない (公開リポ)。
   書き出し (summary.md / summary.json) にはローカルの絶対パス (`repoPath`) と Voluptas の相対パスを含めない。
   Voluptas の証跡はファイル数と最新日時だけを持ち、ファイル名 (回答者名を含み得る) を保存しない。
+- **スプリントは件数だけ (BR-UX-5)**: Actio の集計 (件数・スプリント名・ゴール・日付) だけを保存・表示し、タスク本文・タイトル・担当者・タスク id を持たない。
+  アクティブなスプリントが無い・未接続は「—」で、消化と経過は Actio の集計日で比べる。詳細は [sprints](../feature/sprints.md)。
 - **読むだけ**: 対象リポの `spec/`・`report/` と Voluptas のデータは読むだけで書かない。Anatomia CLI は起動しない。
 - **Internal 公開 (BR-UX-4)**: `https://br${DOMAIN_ROOT}` (Cloudflare Tunnel → loopback) は Cloudflare Access の JWT を
   検証できた要求だけを通し、閲覧専用 (GET / HEAD) にする。画面にも登録・更新・編集・削除を出さない。JWT なしで開くモードは作らず、
@@ -37,12 +40,13 @@ LUDIARS の各プロジェクトが「ワークフローのどこにいて」「
 
 ## 画面の入口
 
-- `GET /` 全プロジェクトの段階バー + 検査クラスのチップ + 鮮度。プロジェクト登録フォーム。
-- `GET /projects/:code` 段階タイムライン・検査表・証跡・スナップショット鮮度・更新ボタン・登録編集。
+- `GET /` 全プロジェクトの段階バー + 検査クラスのチップ + スプリントのチップ + 鮮度。プロジェクト登録フォーム。
+- `GET /projects/:code` 段階タイムライン・検査表・証跡・スプリント区画・スナップショット鮮度・更新ボタン・登録編集。
 - `GET /projects/:code/summary.md` / `summary.json` エグゼクティブサマリーの書き出し。
 
 詳細は [web-ui](../feature/web-ui.md)、段の判定は [workflow](../feature/workflow.md)、
-クラス評価は [grading](../feature/grading.md)、キャッシュは [snapshots](../feature/snapshots.md)。
+クラス評価は [grading](../feature/grading.md)、キャッシュは [snapshots](../feature/snapshots.md)、
+スプリントは [sprints](../feature/sprints.md)。
 
 ## 範囲外 (初版)
 

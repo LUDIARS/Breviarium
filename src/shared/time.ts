@@ -41,3 +41,31 @@ export function millisBetween(earlier: string | null | undefined, later: string 
 
 export const DAY_MS = 86_400_000;
 export const HOUR_MS = 3_600_000;
+
+/** Offset of Japan Standard Time (UTC+9, no daylight saving). LUDIARS plans in JST calendar days. */
+const JST_OFFSET_MS = 9 * HOUR_MS;
+
+const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** A real calendar date written `YYYY-MM-DD`, or null (timestamps and impossible dates are refused, never guessed). */
+export function toCalendarDate(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  const match = DATE_PATTERN.exec(text);
+  if (!match) return null;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? text : null;
+}
+
+/** Whole calendar days from `from` to `to` (both `YYYY-MM-DD`); negative when `to` is earlier. */
+export function daysBetweenDates(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
+}
+
+/** The JST calendar date (`YYYY-MM-DD`) of an instant; null when it is not a valid time. */
+export function jstDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? null : new Date(ms + JST_OFFSET_MS).toISOString().slice(0, 10);
+}

@@ -3,9 +3,10 @@ export type Grade = 'A' | 'B' | 'C' | 'D' | '—';
 
 export const GRADES: readonly Grade[] = ['A', 'B', 'C', 'D', '—'];
 
-export type ToolId = 'praeforma' | 'anatomia' | 'omnipotens' | 'vitia' | 'discutere' | 'voluptas' | 'elegantia' | 'concordia';
+/** `terpsichore` is the MUSA seat 「チームを回す」: sprint health, read from Actio. */
+export type ToolId = 'praeforma' | 'anatomia' | 'omnipotens' | 'vitia' | 'discutere' | 'voluptas' | 'elegantia' | 'concordia' | 'terpsichore';
 
-export const TOOL_IDS: readonly ToolId[] = ['praeforma', 'anatomia', 'omnipotens', 'vitia', 'discutere', 'voluptas', 'elegantia', 'concordia'];
+export const TOOL_IDS: readonly ToolId[] = ['praeforma', 'anatomia', 'omnipotens', 'vitia', 'discutere', 'voluptas', 'elegantia', 'concordia', 'terpsichore'];
 
 export const TOOL_LABELS: Readonly<Record<ToolId, string>> = {
   praeforma: 'Praeforma',
@@ -16,6 +17,7 @@ export const TOOL_LABELS: Readonly<Record<ToolId, string>> = {
   voluptas: 'Voluptas',
   elegantia: 'Elegantia',
   concordia: 'Concordia',
+  terpsichore: 'Terpsichore',
 };
 
 /**

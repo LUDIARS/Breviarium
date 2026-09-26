@@ -20,6 +20,7 @@ export interface BreviariumConfig {
   readonly praeformaUrl?: string;
   readonly elegantiaUrl?: string;
   readonly concordiaUrl?: string;
+  readonly actioUrl?: string;
   readonly voluptasDataDir?: string;
   /** 0 = periodic refresh disabled (default). */
   readonly refreshIntervalSec: number;
@@ -107,6 +108,7 @@ export function loadConfig(env: Env): BreviariumConfig {
   const praeformaUrl = asConfigError(() => resolveSourceUrl(env, 'PRAEFORMA'));
   const elegantiaUrl = asConfigError(() => resolveSourceUrl(env, 'ELEGANTIA'));
   const concordiaUrl = asConfigError(() => resolveSourceUrl(env, 'CONCORDIA'));
+  const actioUrl = asConfigError(() => resolveSourceUrl(env, 'ACTIO'));
   const voluptasDataDir = optionalDir(env, 'BREVIARIUM_VOLPUTAS_DATA_DIR');
   const cloudflareAccess = asConfigError(() => readCloudflareAccessConfig(env));
   return {
@@ -117,6 +119,7 @@ export function loadConfig(env: Env): BreviariumConfig {
     ...(praeformaUrl ? { praeformaUrl } : {}),
     ...(elegantiaUrl ? { elegantiaUrl } : {}),
     ...(concordiaUrl ? { concordiaUrl } : {}),
+    ...(actioUrl ? { actioUrl } : {}),
     ...(voluptasDataDir ? { voluptasDataDir } : {}),
     refreshIntervalSec: refreshInterval(env),
     snapshotMaxAgeHours: integer(env, 'BREVIARIUM_SNAPSHOT_MAX_AGE_HOURS', 1, 24 * 365, CONFIG_DEFAULTS.snapshotMaxAgeHours),

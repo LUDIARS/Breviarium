@@ -1,5 +1,5 @@
 // @implements SPEC-br-snapshots
-export const SOURCE_IDS = ['git', 'praeforma', 'anatomia', 'repo-artifacts', 'voluptas', 'elegantia', 'concordia'] as const;
+export const SOURCE_IDS = ['git', 'praeforma', 'anatomia', 'repo-artifacts', 'voluptas', 'elegantia', 'concordia', 'actio'] as const;
 
 export type SourceId = (typeof SOURCE_IDS)[number];
 
@@ -15,6 +15,7 @@ export const SOURCE_LABELS: Readonly<Record<SourceId, string>> = {
   voluptas: 'Voluptas',
   elegantia: 'Elegantia',
   concordia: 'Concordia',
+  actio: 'Actio (スプリント)',
 };
 
 /** Version of the evidence shape each source stores. Data of another version is not read. */
@@ -26,6 +27,7 @@ export const SOURCE_VERSIONS: Readonly<Record<SourceId, number>> = {
   voluptas: 1,
   elegantia: 1,
   concordia: 1,
+  actio: 1,
 };
 
 export type AttemptStatus = 'ok' | 'failed' | 'not-connected';

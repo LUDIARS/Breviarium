@@ -1,6 +1,7 @@
 // @implements SPEC-br-snapshots
 import { buildInspections } from '../../inspections/domain/build-inspections.ts';
 import type {
+  ActioEvidence,
   AnatomiaEvidence,
   ConcordiaEvidence,
   ElegantiaEvidence,
@@ -12,6 +13,7 @@ import type {
 } from '../../inspections/domain/evidence.ts';
 import { summarizeTools } from '../../inspections/domain/grading.ts';
 import type { Inspection, ToolSummary } from '../../inspections/domain/model.ts';
+import { buildSprintBoard, type SprintBoard } from '../../inspections/domain/sprint-progress.ts';
 import type { Project } from '../../registry/domain/model.ts';
 import type { ProjectStore } from '../../registry/ports.ts';
 import { fail, ok, type Result } from '../../shared/result.ts';
@@ -55,6 +57,8 @@ export interface ProjectOverview {
   readonly currentStage: StageResult | null;
   readonly inspections: readonly Inspection[];
   readonly tools: readonly ToolSummary[];
+  /** Sprint board from the Actio snapshot; null when there is none (not connected / never fetched). */
+  readonly sprints: SprintBoard | null;
   readonly sources: readonly SourceView[];
   /** Sources whose snapshot is not fresh (stale or missing). */
   readonly staleSourceCount: number;
@@ -75,6 +79,7 @@ export function bundleFrom(snapshots: readonly SourceSnapshot[]): EvidenceBundle
     voluptas: data('voluptas') as VoluptasEvidence | null,
     elegantia: data('elegantia') as ElegantiaEvidence | null,
     concordia: data('concordia') as ConcordiaEvidence | null,
+    actio: data('actio') as ActioEvidence | null,
   };
 }
 
@@ -104,6 +109,7 @@ export function composeOverview(project: Project, snapshots: readonly SourceSnap
     currentStage: currentStage(stages),
     inspections,
     tools: summarizeTools(inspections),
+    sprints: buildSprintBoard(bundle.actio),
     sources,
     staleSourceCount: sources.filter((s) => s.freshness.state !== 'fresh').length,
   };

@@ -9,7 +9,7 @@
 ```
 SourceSnapshot = {
   projectCode, source, sourceVersion,
-  subject,         // 何を取得したか (例: praeforma:<projectId>、elegantia:<product>、repo)
+  subject,         // 何を取得したか (例: praeforma:<projectId>、elegantia:<product>、actio:<code>、repo)
   data,            // extractor が正規化した証跡。一度も成功していなければ null
   dataFetchedAt,   // data を取得できた日時
   attemptedAt,     // 最後に取得を試みた日時

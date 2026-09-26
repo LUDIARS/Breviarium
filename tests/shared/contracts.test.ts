@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import acceptsClaimsContract from '../../contracts/accepts-claims.contract.ts';
+import actioSprintsPathContract from '../../contracts/actio-sprints-path.contract.ts';
 import admitCloudflareRequestContract from '../../contracts/admit-cloudflare-request.contract.ts';
 import admitMethodContract from '../../contracts/admit-method.contract.ts';
 import admitWebRequestContract from '../../contracts/admit-web-request.contract.ts';
@@ -9,10 +10,14 @@ import assessFreshnessContract from '../../contracts/assess-freshness.contract.t
 import buildInspectionsContract from '../../contracts/build-inspections.contract.ts';
 import composeOverviewContract from '../../contracts/compose-overview.contract.ts';
 import describeHealthContract from '../../contracts/describe-health.contract.ts';
+import elapsedRatioContract from '../../contracts/elapsed-ratio.contract.ts';
 import escContract from '../../contracts/esc.contract.ts';
 import evaluateStagesContract from '../../contracts/evaluate-stages.contract.ts';
+import extractActioEvidenceContract from '../../contracts/extract-actio-evidence.contract.ts';
 import gradeRatioContract from '../../contracts/grade-ratio.contract.ts';
+import gradeSprintHealthContract from '../../contracts/grade-sprint-health.contract.ts';
 import inspectElegantiaContract from '../../contracts/inspect-elegantia.contract.ts';
+import inspectTerpsichoreContract from '../../contracts/inspect-terpsichore.contract.ts';
 import loadConfigContract from '../../contracts/load-config.contract.ts';
 import planRegistrationContract from '../../contracts/plan-registration.contract.ts';
 import pullRequestsForContract from '../../contracts/pull-requests-for.contract.ts';
@@ -33,6 +38,7 @@ import type { AccessTokenVerifier } from '../../src/adapters/http/cloudflare-acc
 import { toExecutiveSummary } from '../../src/adapters/http/export/summary-json.ts';
 import { describeHealth } from '../../src/adapters/http/health.ts';
 import { admitWebRequest } from '../../src/adapters/http/host-origin-guard.ts';
+import { actioSprintsPath } from '../../src/adapters/sources/actio-source.ts';
 import { esc } from '../../src/adapters/http/html/escape.ts';
 import { renderIndexPage } from '../../src/adapters/http/html/index-page.ts';
 import { renderProjectPage } from '../../src/adapters/http/html/project-page.ts';
@@ -41,6 +47,10 @@ import { buildInspections } from '../../src/inspections/domain/build-inspections
 import { EMPTY_BUNDLE } from '../../src/inspections/domain/evidence.ts';
 import { gradeRatio } from '../../src/inspections/domain/grading.ts';
 import { inspectElegantia } from '../../src/inspections/domain/service-inspections.ts';
+import { gradeSprintHealth } from '../../src/inspections/domain/sprint-health.ts';
+import { inspectTerpsichore } from '../../src/inspections/domain/sprint-inspections.ts';
+import { elapsedRatio } from '../../src/inspections/domain/sprint-progress.ts';
+import { extractActioEvidence } from '../../src/inspections/extractors/actio.ts';
 import { pullRequestsFor } from '../../src/inspections/extractors/concordia.ts';
 import { registerProject } from '../../src/registry/application/registry-use-cases.ts';
 import { planRegistration } from '../../src/registry/domain/registration-rules.ts';
@@ -52,7 +62,7 @@ import { applyOutcome } from '../../src/snapshots/domain/snapshot-rules.ts';
 import { evaluateStages } from '../../src/workflow/domain/stage-evaluation.ts';
 import { DEFAULT_STALE_POLICY } from '../../src/workflow/domain/staleness.ts';
 import { ACCESS_CONFIG, AUD, claims, NOW_MS, NOW_SEC, TEAM } from '../support/access-tokens.ts';
-import { elegantia, fullBundle, NOW, project, testDeps } from '../support/fixtures.ts';
+import { actio, actioResponse, actioTeam, activeSprint, elegantia, fullBundle, NOW, project, sprintTasks, testDeps } from '../support/fixtures.ts';
 
 /** The predicates are exercised against the real rules, and against a violation, so they cannot pass vacuously. */
 describe('contract predicates hold for the rules', () => {
@@ -246,5 +256,50 @@ describe('contract predicates hold for the rules', () => {
     }
     assert.equal(typeof renderProjectPageContract.post(renderProjectPage(overview, {}, 'local'), overview, {}, 'viewer'), 'string');
     assert.equal(typeof renderIndexPageContract.post(renderIndexPage([overview], {}, 'local'), [overview], {}, 'viewer'), 'string');
+  });
+
+  it('C-23 Actio evidence keeps the contract fields only', () => {
+    const noisy = { ...actioResponse(), extra: 'x', teams: [{ ...(actioResponse()['teams'] as object[])[0], members: ['someone'] }] };
+    for (const body of [actioResponse(), noisy, { project: 'KD', generatedAt: '2026-09-26T03:00:00Z', teams: [] }, { project: 'KD' }, null, { ...actioResponse(), teams: [{ activeSprint: { startsOn: 'x' } }] }]) {
+      assert.equal(extractActioEvidenceContract.post(extractActioEvidence(body), body), true, JSON.stringify(body));
+    }
+    const leaking = { ok: true as const, value: { ...actio(), teams: [{ ...actioTeam(), members: ['someone'] }] } };
+    assert.equal(typeof extractActioEvidenceContract.post(leaking, actioResponse()), 'string');
+    assert.equal(typeof extractActioEvidenceContract.post({ ok: true, value: actio() }, { project: 'KD' }), 'string');
+    const undated = { ok: true as const, value: actio({ teams: [actioTeam({ activeSprint: activeSprint({ startsOn: '2026-09-22T00:00:00Z' }) })] }) };
+    assert.equal(typeof extractActioEvidenceContract.post(undated, actioResponse()), 'string');
+  });
+
+  it('C-24 sprint-health class', () => {
+    const cases: Array<[number | null, number, number]> = [[0.5, 0.5, 0], [0.35, 0.5, 0], [0.34, 0.5, 0], [0.2, 0.5, 0], [0.19, 0.5, 0], [0.5, 0.5, 1], [0.1, 0.9, 2], [null, 0.5, 1], [1, 0, 0]];
+    for (const [c, e, o] of cases) assert.equal(gradeSprintHealthContract.post(gradeSprintHealth(c, e, o), c, e, o), true, JSON.stringify([c, e, o]));
+    assert.equal(typeof gradeSprintHealthContract.post('A', 0.5, 0.5, 1), 'string');
+    assert.equal(typeof gradeSprintHealthContract.post('C', 0.35, 0.5, 0), 'string');
+    assert.equal(typeof gradeSprintHealthContract.post('A', null, 0.5, 0), 'string');
+  });
+
+  it('C-25 elapsed ratio', () => {
+    for (const today of ['2026-09-01', '2026-09-22', '2026-09-26', '2026-10-05', '2026-10-30']) {
+      assert.equal(elapsedRatioContract.post(elapsedRatio('2026-09-22', '2026-10-05', today), '2026-09-22', '2026-10-05', today), true, today);
+    }
+    assert.equal(elapsedRatioContract.post(elapsedRatio('2026-09-22', '2026-09-22', '2026-09-22'), '2026-09-22', '2026-09-22', '2026-09-22'), true);
+    assert.equal(typeof elapsedRatioContract.post(0.9, '2026-09-22', '2026-10-05', '2026-10-05'), 'string');
+    assert.equal(typeof elapsedRatioContract.post(0.1, '2026-09-22', '2026-10-05', '2026-09-22'), 'string');
+    assert.equal(typeof elapsedRatioContract.post(1.2, '2026-09-22', '2026-10-05', '2026-09-26'), 'string');
+  });
+
+  it('C-26 lowest team class', () => {
+    const ahead = actioTeam({ teamId: 'a', activeSprint: activeSprint({ tasks: sprintTasks({ project: { total: 4, byStatus: { done: 4 } }, overdue: 0 }) }) });
+    for (const e of [null, actio(), actio({ teams: [] }), actio({ teams: [actioTeam({ activeSprint: null })] }), actio({ teams: [ahead, actioTeam()] })]) {
+      assert.equal(inspectTerpsichoreContract.post(inspectTerpsichore(e), e), true, JSON.stringify(e?.teams.length));
+    }
+    const two = actio({ teams: [ahead, actioTeam()] });
+    assert.equal(typeof inspectTerpsichoreContract.post(inspectTerpsichore(actio({ teams: [ahead] })), two), 'string');
+    assert.equal(typeof inspectTerpsichoreContract.post(inspectTerpsichore(actio()), null), 'string');
+  });
+
+  it('C-27 Actio code', () => {
+    for (const p of [project({ bindings: {} }), project({ bindings: { actioProjectCode: 'KD' } })]) assert.equal(actioSprintsPathContract.post(actioSprintsPath(p), p), true);
+    assert.equal(typeof actioSprintsPathContract.post('/api/projects/cc/Br/sprints', project({ bindings: { actioProjectCode: 'KD' } })), 'string');
   });
 });
