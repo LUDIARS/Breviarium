@@ -25,6 +25,12 @@ describe('registration rules', () => {
     assert.deepEqual(validateBindings({ actioProjectCode: '' }), { ok: true, value: {} });
   });
 
+  it('accepts an Anatomia project id binding and refuses ids that are not plain names', () => {
+    assert.deepEqual(validateBindings({ anatomiaProject: ' breviarium ' }), { ok: true, value: { anatomiaProject: 'breviarium' } });
+    assert.deepEqual(validateBindings({ anatomiaProject: 'ars-module.v2' }), { ok: true, value: { anatomiaProject: 'ars-module.v2' } });
+    for (const bad of ['-x', 'a b', 'a/b', '../x', 'x'.repeat(65)]) assert.equal(validateBindings({ anatomiaProject: bad }).ok, false, bad);
+  });
+
   it('validates bindings and treats empty values as unbound', () => {
     const ok = validateBindings({ praeformaProjectId: '01M2RZXD2WVGQP0NKXEE9WRYZ1', githubRepo: 'LUDIARS/Breviarium', voluptasPath: 'answers\\team', elegantiaProduct: '' });
     assert.deepEqual(ok, { ok: true, value: { praeformaProjectId: '01M2RZXD2WVGQP0NKXEE9WRYZ1', githubRepo: 'LUDIARS/Breviarium', voluptasPath: 'answers/team' } });

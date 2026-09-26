@@ -43,7 +43,7 @@ describe('grading', () => {
     assert.equal(tools.find((t) => t.tool === 'praeforma')?.grade, 'C');
     assert.equal(tools.find((t) => t.tool === 'voluptas')?.grade, '—');
     assert.equal(tools.find((t) => t.tool === 'elegantia')?.inspectionCount, 0);
-    assert.equal(tools.length, 9);
+    assert.equal(tools.length, 10);
     assert.equal(worstGrade(['—', '—']), '—');
   });
 });

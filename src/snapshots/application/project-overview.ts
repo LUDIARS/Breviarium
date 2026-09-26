@@ -2,13 +2,17 @@
 import { buildInspections } from '../../inspections/domain/build-inspections.ts';
 import type {
   ActioEvidence,
+  AnatomiaCoverageEvidence,
   AnatomiaEvidence,
   ConcordiaEvidence,
+  DomainReviewsEvidence,
   ElegantiaEvidence,
   EvidenceBundle,
   GitEvidence,
+  PraeformaAcceptanceEvidence,
   PraeformaEvidence,
   RepoArtifactsEvidence,
+  RevisorEvidence,
   VoluptasEvidence,
 } from '../../inspections/domain/evidence.ts';
 import { summarizeTools } from '../../inspections/domain/grading.ts';
@@ -74,11 +78,15 @@ export function bundleFrom(snapshots: readonly SourceSnapshot[]): EvidenceBundle
   return {
     git: data('git') as GitEvidence | null,
     praeforma: data('praeforma') as PraeformaEvidence | null,
+    praeformaAcceptance: data('praeforma-acceptance') as PraeformaAcceptanceEvidence | null,
     anatomia: data('anatomia') as AnatomiaEvidence | null,
+    anatomiaCoverage: data('anatomia-cli') as AnatomiaCoverageEvidence | null,
     repoArtifacts: data('repo-artifacts') as RepoArtifactsEvidence | null,
     voluptas: data('voluptas') as VoluptasEvidence | null,
     elegantia: data('elegantia') as ElegantiaEvidence | null,
     concordia: data('concordia') as ConcordiaEvidence | null,
+    domainReviews: data('concordia-reviews') as DomainReviewsEvidence | null,
+    revisor: data('revisor') as RevisorEvidence | null,
     actio: data('actio') as ActioEvidence | null,
   };
 }

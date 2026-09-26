@@ -4,7 +4,7 @@ LUDIARS プロジェクト状態のエグゼクティブサマリー。登録し
 **ワークフローのどの段階にいて (S1〜S8 + 定期レビュー)**、**どの検査でどのクラス評価か (A/B/C/D/—)** を、
 証跡 (場所・計測日時・対象 commit) 付きで一枚に出す。
 各プロジェクトの **現在スプリントの健全さ (消化 vs 経過)** も Actio の集計から出す (MUSA Terpsichore の席「チームを回す」)。表示は常に Breviarium のキャッシュ (スナップショット) から出し、
-各ソースの取得日時と鮮度を並べる。ソースへ行くのは「更新」操作 (と任意の定期更新) だけ。
+各ソースの取得日時と鮮度を並べる。ソースへ行くのは「更新」操作と定期更新 (catalog では **1 時間ごとに全プロジェクト refresh、失敗したソースは前回値を保持**) だけ。
 
 - 価値・不変条件: [spec/ux/product.md](spec/ux/product.md)
 - 構成: [spec/architecture/overview.md](spec/architecture/overview.md)
@@ -40,7 +40,10 @@ npm test                    # node --test "tests/**/*.test.ts"
 | `BREVIARIUM_CONCORDIA_URL` / `CONCORDIA_URL` | | 未接続 | Concordia |
 | `BREVIARIUM_ACTIO_URL` / `ACTIO_URL` | | 未接続 | Actio (スプリント集計 `/api/projects/cc/<code>/sprints`)。明示値が優先、無ければ Actio の catalog が provides する topology env |
 | `BREVIARIUM_VOLPUTAS_DATA_DIR` | | 未接続 | Voluptas のローカルデータ (絶対パス)。登録の `voluptasPath` はこの配下の相対パス |
-| `BR_REFRESH_INTERVAL_SEC` | | 0 (無効) | 定期更新の間隔。有効にするときは 60〜86400 |
+| `BREVIARIUM_REFRESH_INTERVAL_SEC` | | 0 (無効)、catalog は `3600` | 定期更新の間隔 (60〜86400)。1 プロジェクトずつ直列に全ソースを更新し、失敗したソースは前回値を保持。手動 refresh と重なったプロジェクトは 409 で片方を飛ばす。旧名 `BR_REFRESH_INTERVAL_SEC` も読む (新名が優先) |
+| `BREVIARIUM_ANATOMIA_CLI` | | 未接続、catalog は `${ARS_ROOT}/Anatomia/bin/anatomia.mjs` | Anatomia CLI (絶対パス)。所属率 `anatomia/domain-coverage` に使う |
+| `BREVIARIUM_REVISOR_CLI` | | 未接続、catalog は `${ARS_ROOT}/Revisor/src/cli.mjs` | Revisor CLI (絶対パス)。`anatomia/verify` と `revisor/merge-risk` に使う |
+| `BREVIARIUM_REVIEW_STALE_DAYS` | | 30 | 定期レビュー段: 最新のドメインレビュー投稿がこれより古いと stale |
 | `BREVIARIUM_SNAPSHOT_MAX_AGE_HOURS` | | 24 | これより古いスナップショットは「古い」 |
 | `BREVIARIUM_STALE_AFTER_DAYS` | | 30 | 完了した段の証跡がこれより古いと段は stale |
 | `BREVIARIUM_STALE_COMMIT_LAG_DAYS` | | 7 | 証跡が HEAD の commit よりこれ以上古いと段は stale |
@@ -51,7 +54,7 @@ npm test                    # node --test "tests/**/*.test.ts"
 | `EXCUBITOR_SERVICE_CONFIG_JSON` | | — | Excubitor のサービス設定。`cloudflareAccess.{teamDomain,audience}` を読む (上の 2 env が優先) |
 | `BREVIARIUM_VIEWER_ORIGINS` | | — | 追加で許す Origin (完全一致、カンマ区切り) |
 
-URL 未設定・binding 未登録のソースは「未接続」になり、推測で URL やプロジェクトを当てない。
+URL・CLI パス未設定、binding 未登録のソースは「未接続」になり、推測で URL・CLI・プロジェクトを当てない。
 
 ## ソース
 
@@ -59,11 +62,15 @@ URL 未設定・binding 未登録のソースは「未接続」になり、推�
 |---|---|---|
 | git | 登録 checkout の HEAD・branch・tag | 登録の repoPath |
 | praeforma | Pf プロジェクトの ux-goal / domains / specs / spec-versions | `PRAEFORMA_URL`、bindings.praeformaProjectId |
-| anatomia | checkout の `spec/domains/*.domain.json` と生成 manifest (CLI は起動しない) | 登録の repoPath |
+| praeforma-acceptance | `/api/projects/:pid/acceptance/summary` (run・結果の件数) | `PRAEFORMA_URL`、bindings.praeformaProjectId |
+| anatomia | checkout の `spec/domains/*.domain.json` と生成 manifest | 登録の repoPath |
+| anatomia-cli | `anatomia domains program --project <id> --json` の件数だけ (宣言ドメイン層に属する symbol / module の数) | `BREVIARIUM_ANATOMIA_CLI`、bindings.anatomiaProject (無ければ小文字の code) |
 | repo-artifacts | checkout の README・spec・Omnipotens / Vitia / Discutere 成果物 | 登録の repoPath |
 | voluptas | Voluptas データの JSON 件数と最新日時 | `BREVIARIUM_VOLPUTAS_DATA_DIR`、bindings.voluptasPath |
 | elegantia | `/api/overview?product=…` | `ELEGANTIA_URL`、bindings.elegantiaProduct |
 | concordia | `/v1/project-codes`、`/v1/prs` | `CONCORDIA_URL`、bindings.githubRepo |
+| concordia-reviews | `/v1/domain-review/posts?code=<略称>&limit=20` (投稿数と最新 `posted_at` だけ) | `CONCORDIA_URL` |
+| revisor | `revisor pr list --repository <owner/name> --json` → 最新 merged 5 件の `pr show <n> --json` (anatomiaGate・mergeRisk・mergedAt だけ) | `BREVIARIUM_REVISOR_CLI`、bindings.githubRepo |
 | actio | `/api/projects/cc/<code>/sprints` (件数・スプリント名・ゴール・日付だけ。タスク本文は持たない) | `ACTIO_URL`、bindings.actioProjectCode (無ければ登録 code) |
 
 ## 公開手順 (Cloudflare Tunnel + Access)
@@ -112,16 +119,21 @@ Breviarium は loopback (`127.0.0.1:4370`) だけで待ち受ける。Internal �
 |---|---|
 | `GET /api/projects` / `POST /api/projects` | 一覧 / 登録 `{ code, name, repoPath, classification, bindings? }` |
 | `GET` / `PUT` / `DELETE /api/projects/:code` | 取得 / 更新 (bindings は丸ごと置換) / 削除 (スナップショットも消す) |
-| `POST /api/projects/:code/refresh` | 更新 `{ sources?: ["git","praeforma","anatomia","repo-artifacts","voluptas","elegantia","concordia","actio"] }` |
+| `POST /api/projects/:code/refresh` | 更新 `{ sources?: ["git","praeforma","praeforma-acceptance","anatomia","anatomia-cli","repo-artifacts","voluptas","elegantia","concordia","concordia-reviews","revisor","actio"] }` |
 | `GET /api/projects/:code/overview` | スナップショットから組み立てた概要 |
 | `GET /health` | 生存のみ (ソースと Cloudflare Access は configured / not_connected、URL・team・AUD は出さない) |
 
 登録の `bindings`: `praeformaProjectId` (Pf プロジェクト id)、`elegantiaProduct` (Elegantia の product)、
 `voluptasPath` (Voluptas データの相対パス)、`githubRepo` (`owner/name`、Cc の PR を `repo_origin` で照合)、
-`actioProjectCode` (Actio が知る Cc の略称。未登録なら登録 code でスプリントを読む)。
+`actioProjectCode` (Actio が知る Cc の略称。未登録なら登録 code でスプリントを読む)、
+`anatomiaProject` (Anatomia の project id。未登録なら小文字の code で CLI に問い合わせる)。
 
 ## データと復旧
 
 - `data/projects.json` (登録台帳) と `data/snapshots/<code>/<source>.json` (ソースごとの最新スナップショット)。
 - `data/` を消せば初期化される。スナップショットだけ消せば次の更新で作り直す。
-- 対象リポ・各ツールのデータは読むだけで書かない。Anatomia CLI は起動しない。
+- 対象リポ・各ツールのデータは読むだけで書かない。Anatomia / Revisor の CLI は読み取りのサブコマンドだけを `execFile` の引数配列で呼び
+  (シェル補間なし、Revisor には Cc セッションの `GIT_CONFIG_*` を渡さない)、件数・状態・日時だけを保存する。
+- 定期更新は 1 時間ごと (catalog)。失敗したソースは前回値を保持し、鮮度表に「古い」と理由が出る。
+- 新しい証跡を止める (従来どおりに戻す): `BREVIARIUM_ANATOMIA_CLI` / `BREVIARIUM_REVISOR_CLI` を外すとその 2 ソースは未接続
+  (検査は前回値か「—」)。`BREVIARIUM_REFRESH_INTERVAL_SEC` を外すか `0` にすると定期更新が止まり、手動の更新だけになる。

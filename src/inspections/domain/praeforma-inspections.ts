@@ -1,24 +1,21 @@
 // @implements SPEC-br-grading
-import type { PraeformaEvidence } from './evidence.ts';
+import type { PraeformaAcceptanceEvidence, PraeformaEvidence } from './evidence.ts';
 import { ratioOf } from './grading.ts';
-import { graded, notMeasured, percent } from './inspection-factory.ts';
+import { graded, measured, notMeasured, percent } from './inspection-factory.ts';
 import type { Inspection } from './model.ts';
 
-const ACCEPTANCE_REASON = 'Pf の受入 (acceptance) API は未提供 (HTML が返る) のため使わない';
-
-/** Praeforma: ux-design / domains / specs / acceptance (spec/feature/grading.md). */
+/** Praeforma: ux-design / domains / specs (spec/feature/grading.md). Acceptance has its own source and rule below. */
 export function inspectPraeforma(e: PraeformaEvidence | null): Inspection[] {
   const tool = 'praeforma' as const;
-  const acceptance = notMeasured({ tool, kind: 'acceptance', reason: ACCEPTANCE_REASON });
   if (!e) {
     const reason = 'Praeforma のスナップショットがない (未接続・bindings.praeformaProjectId 未登録・未取得)';
-    return ['ux-design', 'domains', 'specs'].map((kind) => notMeasured({ tool, kind, reason })).concat(acceptance);
+    return ['ux-design', 'domains', 'specs'].map((kind) => notMeasured({ tool, kind, reason }));
   }
   const root = `/api/projects/${e.projectId}`;
   if (!e.projectFound) {
     const reason = `Pf にプロジェクト ${e.projectId} が見つからない`;
     const evidence = [{ label: 'Pf プロジェクト一覧', location: '/api/projects', at: null }];
-    return ['ux-design', 'domains', 'specs'].map((kind) => notMeasured({ tool, kind, reason, evidence })).concat(acceptance);
+    return ['ux-design', 'domains', 'specs'].map((kind) => notMeasured({ tool, kind, reason, evidence }));
   }
   const goal = e.uxGoal;
   const uxDesign = goal
@@ -54,5 +51,36 @@ export function inspectPraeforma(e: PraeformaEvidence | null): Inspection[] {
       { label: '仕様の版', location: `${root}/spec-versions`, at: null },
     ],
   });
-  return [uxDesign, domains, specs, acceptance];
+  return [uxDesign, domains, specs];
+}
+
+/**
+ * praeforma/acceptance: passed / (passed + failed + blocked) of Pf's acceptance results. No
+ * snapshot is not measured; no run, or no decided result yet (all pending), is `—`.
+ */
+export function inspectPraeformaAcceptance(e: PraeformaAcceptanceEvidence | null): Inspection[] {
+  const tool = 'praeforma' as const;
+  const kind = 'acceptance';
+  if (!e) return [notMeasured({ tool, kind, reason: 'Pf 受入のスナップショットがない (未接続・bindings.praeformaProjectId 未登録・API 未配備・未取得)' })];
+  const run = e.latestRun;
+  const at = run ? (run.finishedAt ?? run.startedAt) : null;
+  const evidence = [{ label: `Pf 受入${run?.status ? ` (最新 run: ${run.status})` : ''}`, location: `/api/projects/${e.projectId}/acceptance/summary`, at }];
+  if (!run || e.runs.total === 0) return [measured({ tool, kind, score: 0, scoreLabel: '受入 run 0 件', evidence })];
+  const { passed, failed, blocked, pending } = e.results;
+  const decided = passed + failed + blocked;
+  const version = run.version ? `、版 ${run.version}` : '';
+  return [
+    graded({
+      tool,
+      kind,
+      ratio: ratioOf(passed, decided),
+      scoreLabel:
+        decided === 0
+          ? `判定済み 0 件 (pending ${pending}、run ${e.runs.total}${version})`
+          : `合格 ${passed}/${decided} (failed ${failed}、blocked ${blocked}、pending ${pending}${version})`,
+      fallbackScore: 0,
+      evidence,
+      measuredAt: at,
+    }),
+  ];
 }

@@ -25,7 +25,7 @@ LUDIARS の各プロジェクトが「ワークフローのどこにいて」「
 ## 不変条件
 
 - **キャッシュ (BR-UX-3)**: 画面と API はスナップショットだけを読む。ソースへ行くのは
-  `POST /api/projects/:code/refresh` (画面の更新ボタンを含む) と、任意の定期更新 (`BR_REFRESH_INTERVAL_SEC`、既定は無効) だけ。
+  `POST /api/projects/:code/refresh` (画面の更新ボタンを含む) と、定期更新 (`BREVIARIUM_REFRESH_INTERVAL_SEC`。コードの既定は無効、catalog は 1 時間ごと) だけ。
   ソース失敗時は前回の `data` と `dataFetchedAt` を保持し、`attemptedAt` と `error` を並べる。空で上書きしない。
 - **未計測は「—」 (BR-UX-2)**: 取得できていない・API が無い・分母 0 の検査は 0 点や推測で埋めず「—」と表示する。
 - **分類 (BR-UX-4)**: data/ は `.gitignore` 済み。コードと spec に秘匿語・個人情報・トークンを書かない (公開リポ)。
@@ -33,7 +33,9 @@ LUDIARS の各プロジェクトが「ワークフローのどこにいて」「
   Voluptas の証跡はファイル数と最新日時だけを持ち、ファイル名 (回答者名を含み得る) を保存しない。
 - **スプリントは件数だけ (BR-UX-5)**: Actio の集計 (件数・スプリント名・ゴール・日付) だけを保存・表示し、タスク本文・タイトル・担当者・タスク id を持たない。
   アクティブなスプリントが無い・未接続は「—」で、消化と経過は Actio の集計日で比べる。詳細は [sprints](../feature/sprints.md)。
-- **読むだけ**: 対象リポの `spec/`・`report/` と Voluptas のデータは読むだけで書かない。Anatomia CLI は起動しない。
+- **読むだけ**: 対象リポの `spec/`・`report/` と Voluptas のデータは読むだけで書かない。Anatomia / Revisor の CLI は読み取りのサブコマンド
+  (`domains program` / `pr list` / `pr show`) だけを `execFile` の引数配列で呼び (シェル補間なし)、件数・状態・日時だけを保存する
+  (ファイル一覧・PR 本文・ローカルパスを持たない)。
 - **Internal 公開 (BR-UX-4)**: `https://br${DOMAIN_ROOT}` (Cloudflare Tunnel → loopback) は Cloudflare Access の JWT を
   検証できた要求だけを通し、閲覧専用 (GET / HEAD) にする。画面にも登録・更新・編集・削除を出さない。JWT なしで開くモードは作らず、
   Host 許可を Origin 許可へ広げない。詳細は [web-entrance](../feature/web-entrance.md)。
@@ -50,4 +52,4 @@ LUDIARS の各プロジェクトが「ワークフローのどこにいて」「
 
 ## 範囲外 (初版)
 
-Cernere 認証、Corpus 連携、Tela オーバーレイ、定期更新の運用 (機能は入れるが既定 off)。
+Cernere 認証、Corpus 連携、Tela オーバーレイ。

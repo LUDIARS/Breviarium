@@ -15,9 +15,9 @@ src/
   adapters/
     config/          loadConfig (catalog env → 既定値はこのファイル)、Web 入口の Host/Origin・公開 URL・Cloudflare Access 設定
     storage/         JSON ファイル (data/projects.json、data/snapshots/<code>/<source>.json)
-    sources/         git / praeforma / anatomia / repo-artifacts / voluptas / elegantia / concordia / actio
+    sources/         git / praeforma (+ acceptance) / anatomia (+ CLI) / repo-artifacts / voluptas / elegantia / concordia (+ domain-review posts) / revisor / actio
     http/            ルータ・API・画面 (一覧 / 詳細、スプリント表示を含む)・エクスポート (summary.md / summary.json)・入口 (Access 検証・アクセスレベル)
-    scheduler/       任意の定期更新 (既定は無効)
+    scheduler/       定期更新 (コードの既定は無効、catalog は 1 時間ごと)
   main.ts            composition root
 ```
 
@@ -43,14 +43,19 @@ adapters/storage ──▶ registry/ports, snapshots/ports
 |---|---|---|---|
 | git | `git -C <repoPath> …` を child_process (`execFile`、引数配列、シェル補間なし) | 登録の repoPath | しない |
 | praeforma | `GET /api/projects`、`/api/projects/:pid/{ux-goal,domains,specs,spec-versions}` | `BREVIARIUM_PRAEFORMA_URL` → `PRAEFORMA_URL`、bindings.praeformaProjectId | しない |
-| anatomia | repoPath の `spec/domains/*.domain.json` と `spec/data/generated/anatomia/manifest.json` | 登録の repoPath | しない (CLI も起動しない) |
+| praeforma-acceptance | `GET /api/projects/:pid/acceptance/summary` | 同上 | しない |
+| anatomia | repoPath の `spec/domains/*.domain.json` と `spec/data/generated/anatomia/manifest.json` | 登録の repoPath | しない |
+| anatomia-cli | `node <CLI> domains program --project <id> --json` (`execFile`、引数配列、env `ANATOMIA_VESTIGIUM=0`、120 秒) | `BREVIARIUM_ANATOMIA_CLI`、bindings.anatomiaProject (無ければ小文字の code) | しない |
+| revisor | `node <CLI> pr list --repository <owner/name> --json` → 最新 merged 5 件を `pr show <n> --json` で 1 件ずつ (`execFile`、引数配列、env から `GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n` を外す、1 回 60 秒) | `BREVIARIUM_REVISOR_CLI`、bindings.githubRepo | しない |
 | repo-artifacts | repoPath の README・`spec/feature`・`spec/plan/NN-*.md`・`spec/data/omnipotens-*.json`・`vitia-game-experience-audit.json`・`report/omnipotens-final.html` | 登録の repoPath | しない |
 | voluptas | `BREVIARIUM_VOLPUTAS_DATA_DIR` 配下の bindings.voluptasPath の JSON ファイル数と最新 mtime | 同左 | しない |
 | elegantia | `GET /api/overview?product=<product>` | `BREVIARIUM_ELEGANTIA_URL` → `ELEGANTIA_URL`、bindings.elegantiaProduct | しない |
 | actio | `GET /api/projects/cc/<code>/sprints` (スプリント集計、[sprints](../feature/sprints.md)) | `BREVIARIUM_ACTIO_URL` → `ACTIO_URL`、bindings.actioProjectCode (無ければ登録 code) | しない |
 | concordia | `GET /v1/project-codes`、`GET /v1/prs?repository=<owner/name>` (応答を `repo_origin` で絞る) | `BREVIARIUM_CONCORDIA_URL` → `CONCORDIA_URL`、bindings.githubRepo | しない |
+| concordia-reviews | `GET /v1/domain-review/posts?code=<略称>&limit=20` (応答を `code` で絞る) | 同上 (binding 不要) | しない |
 
-URL が未設定・binding が未登録のソースは `not-connected` として記録し、推測で URL やプロジェクトを当てない。
+URL・CLI パスが未設定、binding が未登録のソースは `not-connected` として記録し、推測で URL・CLI・プロジェクトを当てない。
+CLI は Breviarium を動かしている Node で、CLI 自身のディレクトリを cwd にして起動する (登録 checkout では動かさない)。
 Elegantia の catalog は現時点で `provides: ELEGANTIA_URL` を持たないため、Excubitor 経由では未接続になる
 (Elegantia 側で provides を追加するか、Breviarium の catalog env に明示するまで)。
 

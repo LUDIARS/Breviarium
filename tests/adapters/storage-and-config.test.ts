@@ -121,6 +121,27 @@ describe('config', () => {
     assert.throws(() => loadConfig({ ...base, BR_REFRESH_INTERVAL_SEC: '5' }), ConfigError);
   });
 
+  it('reads BREVIARIUM_REFRESH_INTERVAL_SEC (the catalog runs 3600) before the former BR_ name', () => {
+    assert.equal(loadConfig({ ...base, BREVIARIUM_REFRESH_INTERVAL_SEC: '3600' }).refreshIntervalSec, 3600);
+    assert.equal(loadConfig({ ...base, BREVIARIUM_REFRESH_INTERVAL_SEC: '0', BR_REFRESH_INTERVAL_SEC: '600' }).refreshIntervalSec, 0);
+    assert.equal(loadConfig({ ...base, BREVIARIUM_REFRESH_INTERVAL_SEC: ' ', BR_REFRESH_INTERVAL_SEC: '600' }).refreshIntervalSec, 600);
+    assert.throws(() => loadConfig({ ...base, BREVIARIUM_REFRESH_INTERVAL_SEC: '59' }), /BREVIARIUM_REFRESH_INTERVAL_SEC/);
+  });
+
+  it('takes the Anatomia / Revisor CLIs only as absolute paths (unset = not connected) and the review threshold in days', () => {
+    const cli = join(tmpdir(), 'anatomia.mjs');
+    const c = loadConfig({ ...base, BREVIARIUM_ANATOMIA_CLI: cli, BREVIARIUM_REVISOR_CLI: join(tmpdir(), 'cli.mjs'), BREVIARIUM_REVIEW_STALE_DAYS: '14' });
+    assert.equal(c.anatomiaCliPath, cli);
+    assert.equal(c.revisorCliPath, join(tmpdir(), 'cli.mjs'));
+    assert.equal(c.reviewStaleDays, 14);
+    const unset = loadConfig(base);
+    assert.equal(unset.anatomiaCliPath, undefined);
+    assert.equal(unset.revisorCliPath, undefined);
+    assert.equal(unset.reviewStaleDays, 30);
+    assert.throws(() => loadConfig({ ...base, BREVIARIUM_ANATOMIA_CLI: 'bin/anatomia.mjs' }), ConfigError);
+    assert.throws(() => loadConfig({ ...base, BREVIARIUM_REVIEW_STALE_DAYS: '0' }), ConfigError);
+  });
+
   it('requires an absolute Voluptas data directory', () => {
     assert.throws(() => loadConfig({ ...base, BREVIARIUM_VOLPUTAS_DATA_DIR: 'relative/dir' }), ConfigError);
     assert.equal(loadConfig({ ...base, BREVIARIUM_VOLPUTAS_DATA_DIR: join(tmpdir(), 'v') }).voluptasDataDir, join(tmpdir(), 'v'));

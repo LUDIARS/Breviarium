@@ -3,8 +3,8 @@ import type { describeHealth } from '../src/adapters/http/health.ts';
 import type { ContractOf } from './contract-types.ts';
 
 /**
- * C-13: health reports liveness only, follows each source's and Cloudflare Access's
- * configuration, and exposes no URL, path, Access team or AUD.
+ * C-13: health reports liveness only, follows each source's (including the two CLIs') and
+ * Cloudflare Access's configuration, and exposes no URL, path, Access team or AUD.
  */
 export default {
   post: (report, config) => {
@@ -15,6 +15,8 @@ export default {
       [config.concordiaUrl, report.sources.concordia],
       [config.actioUrl, report.sources.actio],
       [config.voluptasDataDir, report.sources.voluptas],
+      [config.anatomiaCliPath, report.sources.anatomiaCli],
+      [config.revisorCliPath, report.sources.revisorCli],
       [config.cloudflareAccess, report.access.cloudflareAccess],
     ];
     for (const [value, state] of pairs) if (state !== (value ? 'configured' : 'not_connected')) return 'capability state does not follow its configuration';
@@ -25,6 +27,8 @@ export default {
       config.concordiaUrl,
       config.actioUrl,
       config.voluptasDataDir,
+      config.anatomiaCliPath,
+      config.revisorCliPath,
       config.dataDir,
       config.access.publicOrigin,
       config.cloudflareAccess?.issuer.replace(/^https:\/\//, ''),

@@ -1,8 +1,10 @@
 // @implements SPEC-br-grading
+import { inspectDomainCoverage, inspectVerify } from './anatomia-inspections.ts';
 import type { EvidenceBundle } from './evidence.ts';
 import type { Inspection } from './model.ts';
-import { inspectPraeforma } from './praeforma-inspections.ts';
-import { inspectAnatomia, inspectDiscutere, inspectOmnipotens, inspectVitia } from './repo-inspections.ts';
+import { inspectPraeforma, inspectPraeformaAcceptance } from './praeforma-inspections.ts';
+import { inspectDiscutere, inspectDomainDeclarations, inspectOmnipotens, inspectVitia } from './repo-inspections.ts';
+import { inspectMergeRisk } from './revisor-inspections.ts';
 import { inspectConcordia, inspectElegantia, inspectVoluptas } from './service-inspections.ts';
 import { inspectTerpsichore } from './sprint-inspections.ts';
 
@@ -14,13 +16,17 @@ export function buildInspections(bundle: EvidenceBundle): Inspection[] {
   const commit = bundle.git?.headSha ?? null;
   return [
     ...inspectPraeforma(bundle.praeforma),
-    ...inspectAnatomia(bundle.anatomia, commit),
+    ...inspectPraeformaAcceptance(bundle.praeformaAcceptance),
+    ...inspectDomainDeclarations(bundle.anatomia, commit),
+    ...inspectDomainCoverage(bundle.anatomiaCoverage),
+    ...inspectVerify(bundle.revisor),
     ...inspectOmnipotens(bundle.repoArtifacts, commit),
     ...inspectVitia(bundle.repoArtifacts, commit),
     ...inspectDiscutere(bundle.repoArtifacts, commit),
     ...inspectVoluptas(bundle.voluptas),
     ...inspectElegantia(bundle.elegantia),
-    ...inspectConcordia(bundle.concordia),
+    ...inspectConcordia(bundle.concordia, bundle.domainReviews),
+    ...inspectMergeRisk(bundle.revisor),
     ...inspectTerpsichore(bundle.actio),
   ];
 }

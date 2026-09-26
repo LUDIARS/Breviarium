@@ -1,12 +1,36 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildWebAccess } from '../../src/adapters/config/web-access.ts';
+import { createApp } from '../../src/adapters/http/create-app.ts';
 import { admitWebRequest } from '../../src/adapters/http/host-origin-guard.ts';
 import { INPUT_FONT_PX, STYLE, TAP_PX } from '../../src/adapters/http/html/styles.ts';
 import { startRefreshScheduler, type SchedulerTimers } from '../../src/adapters/scheduler/refresh-scheduler.ts';
 import { MemoryProjectStore } from '../../src/adapters/storage/memory-stores.ts';
 import { ok } from '../../src/shared/result.ts';
-import { project } from '../support/fixtures.ts';
+import type { SourceAdapter, SourceRegistry } from '../../src/snapshots/ports.ts';
+import { okSources, project, testDeps } from '../support/fixtures.ts';
+
+/** The fixture sources with git held on its first fetch until `release`; `started` resolves when that fetch begins. */
+function heldSources(): { sources: SourceRegistry; started: Promise<void>; release: () => void } {
+  const base = okSources();
+  let release: () => void = () => undefined;
+  let signal: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  const started = new Promise<void>((resolve) => (signal = resolve));
+  let first = true;
+  const git: SourceAdapter = {
+    id: 'git',
+    async fetch(p) {
+      if (first) {
+        first = false;
+        signal();
+        await gate;
+      }
+      return base.git.fetch(p);
+    },
+  };
+  return { sources: { ...base, git }, started, release };
+}
 
 describe('web entrance', () => {
   const access = buildWebAccess(4370, '.example.test', undefined);
@@ -101,5 +125,63 @@ describe('periodic refresh', () => {
     assert.deepEqual(refreshed, ['Aa', 'Bb']);
     scheduler.stop();
     assert.equal(timers.cleared, true);
+  });
+
+  it('refreshes one project at a time, never two in flight', async () => {
+    const projects = new MemoryProjectStore();
+    for (const code of ['Aa', 'Bb', 'Cc']) await projects.put(project({ code }));
+    let inFlight = 0;
+    let most = 0;
+    const order: string[] = [];
+    const scheduler = startRefreshScheduler(3600, projects, async (code) => {
+      inFlight++;
+      most = Math.max(most, inFlight);
+      order.push(code);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight--;
+      return ok({ projectCode: code, results: [] });
+    }, () => undefined, manualTimers());
+    assert.ok(scheduler);
+    await scheduler.runRound();
+    assert.equal(most, 1);
+    assert.deepEqual(order, ['Aa', 'Bb', 'Cc']);
+  });
+
+  it('skips a project a manual refresh is holding (409) without reporting it, and goes on with the next', async () => {
+    const { sources, started, release } = heldSources();
+    const { deps, projects } = testDeps(sources);
+    await projects.put(project({ code: 'Aa' }));
+    await projects.put(project({ code: 'Bb' }));
+    const manual = deps.refresh('Aa');
+    await started;
+    const seen: string[] = [];
+    const errors: unknown[] = [];
+    const scheduler = startRefreshScheduler(3600, projects, async (code, requested) => {
+      const result = await deps.refresh(code, requested);
+      seen.push(`${code}:${result.ok ? 'ok' : result.error.code}`);
+      return result;
+    }, (error) => errors.push(error), manualTimers());
+    assert.ok(scheduler);
+    await scheduler.runRound();
+    assert.deepEqual(seen, ['Aa:refresh_in_progress', 'Bb:ok']);
+    assert.deepEqual(errors, []);
+    release();
+    assert.equal((await manual).ok, true);
+  });
+
+  it('a manual refresh of the project the round is refreshing answers 409', async () => {
+    const { sources, started, release } = heldSources();
+    const { deps, projects } = testDeps(sources);
+    await projects.put(project({ code: 'Aa' }));
+    const scheduler = startRefreshScheduler(3600, projects, deps.refresh, () => undefined, manualTimers());
+    assert.ok(scheduler);
+    const round = scheduler.runRound();
+    await started;
+    const url = new URL('http://localhost/api/projects/Aa/refresh');
+    const res = await createApp(deps).handle({ method: 'POST', path: url.pathname, query: url.searchParams, headers: { 'content-type': 'application/json' }, body: '{}', accessLevel: 'local' });
+    assert.equal(res.status, 409);
+    assert.match(res.body, /refresh_in_progress/);
+    release();
+    await round;
   });
 });

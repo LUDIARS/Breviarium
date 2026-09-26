@@ -14,10 +14,18 @@ import elapsedRatioContract from '../../contracts/elapsed-ratio.contract.ts';
 import escContract from '../../contracts/esc.contract.ts';
 import evaluateStagesContract from '../../contracts/evaluate-stages.contract.ts';
 import extractActioEvidenceContract from '../../contracts/extract-actio-evidence.contract.ts';
+import extractAnatomiaCoverageEvidenceContract from '../../contracts/extract-anatomia-coverage-evidence.contract.ts';
+import extractDomainReviewsEvidenceContract from '../../contracts/extract-domain-reviews-evidence.contract.ts';
 import gradeRatioContract from '../../contracts/grade-ratio.contract.ts';
 import gradeSprintHealthContract from '../../contracts/grade-sprint-health.contract.ts';
+import inspectDomainCoverageContract from '../../contracts/inspect-domain-coverage.contract.ts';
 import inspectElegantiaContract from '../../contracts/inspect-elegantia.contract.ts';
+import inspectMergeRiskContract from '../../contracts/inspect-merge-risk.contract.ts';
+import inspectPraeformaAcceptanceContract from '../../contracts/inspect-praeforma-acceptance.contract.ts';
 import inspectTerpsichoreContract from '../../contracts/inspect-terpsichore.contract.ts';
+import inspectVerifyContract from '../../contracts/inspect-verify.contract.ts';
+import judgePeriodicReviewContract from '../../contracts/judge-periodic-review.contract.ts';
+import latestMergedPrNumbersContract from '../../contracts/latest-merged-pr-numbers.contract.ts';
 import loadConfigContract from '../../contracts/load-config.contract.ts';
 import planRegistrationContract from '../../contracts/plan-registration.contract.ts';
 import pullRequestsForContract from '../../contracts/pull-requests-for.contract.ts';
@@ -26,7 +34,9 @@ import readPublicOriginContract from '../../contracts/read-public-origin.contrac
 import refreshProjectContract from '../../contracts/refresh-project.contract.ts';
 import renderIndexPageContract from '../../contracts/render-index-page.contract.ts';
 import renderProjectPageContract from '../../contracts/render-project-page.contract.ts';
+import reviewStaleReasonsContract from '../../contracts/review-stale-reasons.contract.ts';
 import toExecutiveSummaryContract from '../../contracts/to-executive-summary.contract.ts';
+import withoutGitConfigInjectionContract from '../../contracts/without-git-config-injection.contract.ts';
 import { readCloudflareAccessConfig } from '../../src/adapters/config/cloudflare-access-config.ts';
 import { loadConfig } from '../../src/adapters/config/load-config.ts';
 import { readPublicOrigin } from '../../src/adapters/config/public-origin.ts';
@@ -39,19 +49,34 @@ import { toExecutiveSummary } from '../../src/adapters/http/export/summary-json.
 import { describeHealth } from '../../src/adapters/http/health.ts';
 import { admitWebRequest } from '../../src/adapters/http/host-origin-guard.ts';
 import { actioSprintsPath } from '../../src/adapters/sources/actio-source.ts';
+import { withoutGitConfigInjection } from '../../src/adapters/sources/revisor-source.ts';
 import { esc } from '../../src/adapters/http/html/escape.ts';
 import { renderIndexPage } from '../../src/adapters/http/html/index-page.ts';
 import { renderProjectPage } from '../../src/adapters/http/html/project-page.ts';
 import type { HttpResponse } from '../../src/adapters/http/http-types.ts';
+import { inspectDomainCoverage, inspectVerify } from '../../src/inspections/domain/anatomia-inspections.ts';
 import { buildInspections } from '../../src/inspections/domain/build-inspections.ts';
-import { EMPTY_BUNDLE } from '../../src/inspections/domain/evidence.ts';
+import {
+  type AnatomiaCoverageEvidence,
+  type ConcordiaEvidence,
+  type DomainReviewsEvidence,
+  EMPTY_BUNDLE,
+  type MergedPrReviewFact,
+  type PraeformaAcceptanceEvidence,
+  type RevisorEvidence,
+} from '../../src/inspections/domain/evidence.ts';
 import { gradeRatio } from '../../src/inspections/domain/grading.ts';
+import { inspectPraeformaAcceptance } from '../../src/inspections/domain/praeforma-inspections.ts';
+import { inspectMergeRisk } from '../../src/inspections/domain/revisor-inspections.ts';
 import { inspectElegantia } from '../../src/inspections/domain/service-inspections.ts';
 import { gradeSprintHealth } from '../../src/inspections/domain/sprint-health.ts';
 import { inspectTerpsichore } from '../../src/inspections/domain/sprint-inspections.ts';
 import { elapsedRatio } from '../../src/inspections/domain/sprint-progress.ts';
 import { extractActioEvidence } from '../../src/inspections/extractors/actio.ts';
+import { extractAnatomiaCoverageEvidence } from '../../src/inspections/extractors/anatomia-coverage.ts';
 import { pullRequestsFor } from '../../src/inspections/extractors/concordia.ts';
+import { extractDomainReviewsEvidence } from '../../src/inspections/extractors/concordia-reviews.ts';
+import { latestMergedPrNumbers } from '../../src/inspections/extractors/revisor.ts';
 import { registerProject } from '../../src/registry/application/registry-use-cases.ts';
 import { planRegistration } from '../../src/registry/domain/registration-rules.ts';
 import { composeOverview } from '../../src/snapshots/application/project-overview.ts';
@@ -60,9 +85,34 @@ import { assessFreshness } from '../../src/snapshots/domain/freshness.ts';
 import type { SourceSnapshot } from '../../src/snapshots/domain/model.ts';
 import { applyOutcome } from '../../src/snapshots/domain/snapshot-rules.ts';
 import { evaluateStages } from '../../src/workflow/domain/stage-evaluation.ts';
-import { DEFAULT_STALE_POLICY } from '../../src/workflow/domain/staleness.ts';
+import { judgePeriodicReview } from '../../src/workflow/domain/stage-rules.ts';
+import { DEFAULT_STALE_POLICY, reviewStaleReasons } from '../../src/workflow/domain/staleness.ts';
 import { ACCESS_CONFIG, AUD, claims, NOW_MS, NOW_SEC, TEAM } from '../support/access-tokens.ts';
-import { actio, actioResponse, actioTeam, activeSprint, elegantia, fullBundle, NOW, project, sprintTasks, testDeps } from '../support/fixtures.ts';
+import { actio, actioResponse, actioTeam, activeSprint, concordia, daysAgo, elegantia, fullBundle, NOW, project, sprintTasks, testDeps } from '../support/fixtures.ts';
+
+function coverageOf(classified: number, total: number): AnatomiaCoverageEvidence {
+  return { project: 'x', layersDeclared: true, modules: { total: 2, classified: 1 }, symbols: { total, classified }, domainCount: 1 };
+}
+
+type Gate = MergedPrReviewFact['anatomiaGate'];
+
+function mergedPr(number: number, day: number, anatomiaGate: Gate, band: string | null = null): MergedPrReviewFact {
+  return { number, mergedAt: `2026-09-0${day}T00:00:00.000Z`, mergeCommit: null, anatomiaGate, mergeRisk: band ? { band, score: 1 } : null };
+}
+
+const revisorOf = (...merged: MergedPrReviewFact[]): RevisorEvidence => ({ repository: 'LUDIARS/Breviarium', merged });
+const passed = (advisoryCount = 0): Gate => ({ status: 'passed', advisoryCount });
+const failedGate: Gate = { status: 'failed', advisoryCount: 0 };
+
+function acceptanceOf(passedCount: number, failed: number, blocked: number, runs = 1): PraeformaAcceptanceEvidence {
+  return {
+    projectId: 'PF01',
+    runs: { total: runs, byStatus: {} },
+    latestRun: runs ? { status: 'completed', startedAt: null, finishedAt: null, version: null } : null,
+    results: { total: passedCount + failed + blocked, passed: passedCount, failed, blocked, pending: 0 },
+    specVersion: null,
+  };
+}
 
 /** The predicates are exercised against the real rules, and against a violation, so they cannot pass vacuously. */
 describe('contract predicates hold for the rules', () => {
@@ -296,6 +346,112 @@ describe('contract predicates hold for the rules', () => {
     const two = actio({ teams: [ahead, actioTeam()] });
     assert.equal(typeof inspectTerpsichoreContract.post(inspectTerpsichore(actio({ teams: [ahead] })), two), 'string');
     assert.equal(typeof inspectTerpsichoreContract.post(inspectTerpsichore(actio()), null), 'string');
+  });
+
+  it('C-28 Anatomia coverage keeps counts only', () => {
+    const output = { repoPath: 'E:\\Document\\Ars\\X', configPresent: true, modules: [{ moduleId: 'src/a', layer: 'domain', symbolCount: 4, files: ['src/a/x.ts'] }, { moduleId: 'src/b', layer: null, symbolCount: 1 }], totals: { domains: 1 } };
+    for (const body of [output, { modules: [] }, {}, null, { modules: 'x' }]) {
+      assert.equal(extractAnatomiaCoverageEvidenceContract.post(extractAnatomiaCoverageEvidence('x', body), 'x', body), true, JSON.stringify(body));
+    }
+    const extracted = extractAnatomiaCoverageEvidence('x', output);
+    assert.ok(extracted.ok);
+    const leaking = { ok: true as const, value: { ...extracted.value, files: ['src/a/x.ts'] } };
+    assert.equal(typeof extractAnatomiaCoverageEvidenceContract.post(leaking, 'x', output), 'string');
+    assert.equal(typeof extractAnatomiaCoverageEvidenceContract.post(extracted, 'x', { modules: 'x' }), 'string');
+  });
+
+  it('C-29 domain coverage class', () => {
+    for (const e of [null, coverageOf(0, 0), coverageOf(90, 100), coverageOf(89, 100), coverageOf(50, 100), coverageOf(10, 100)]) {
+      assert.equal(inspectDomainCoverageContract.post(inspectDomainCoverage(e), e), true, JSON.stringify(e?.symbols));
+    }
+    assert.equal(typeof inspectDomainCoverageContract.post(inspectDomainCoverage(coverageOf(90, 100)), coverageOf(89, 100)), 'string');
+    assert.equal(typeof inspectDomainCoverageContract.post(inspectDomainCoverage(coverageOf(90, 100)), null), 'string');
+  });
+
+  it('C-30 verify class from the newest merge', () => {
+    const newestPassed = revisorOf(mergedPr(2, 2, passed()), mergedPr(1, 1, failedGate));
+    for (const e of [null, revisorOf(), newestPassed, revisorOf(mergedPr(1, 1, passed(2))), revisorOf(mergedPr(1, 1, failedGate)), revisorOf(mergedPr(1, 1, null))]) {
+      assert.equal(inspectVerifyContract.post(inspectVerify(e), e), true, JSON.stringify(e?.merged));
+    }
+    assert.equal(typeof inspectVerifyContract.post(inspectVerify(revisorOf(mergedPr(1, 1, failedGate))), newestPassed), 'string');
+    assert.equal(typeof inspectVerifyContract.post(inspectVerify(revisorOf(mergedPr(1, 1, passed()))), revisorOf(mergedPr(1, 1, passed(1)))), 'string');
+  });
+
+  it('C-31 merge-risk class from the worst band', () => {
+    const mixed = revisorOf(mergedPr(3, 3, null, 'low'), mergedPr(2, 2, null, 'critical'), mergedPr(1, 1, null, 'medium'));
+    for (const e of [null, revisorOf(), mixed, revisorOf(mergedPr(1, 1, null, 'high')), revisorOf(mergedPr(1, 1, null))]) {
+      assert.equal(inspectMergeRiskContract.post(inspectMergeRisk(e), e), true, JSON.stringify(e?.merged));
+    }
+    assert.equal(typeof inspectMergeRiskContract.post(inspectMergeRisk(revisorOf(mergedPr(3, 3, null, 'low'))), mixed), 'string');
+  });
+
+  it('C-32 acceptance class', () => {
+    for (const e of [null, acceptanceOf(0, 0, 0, 0), acceptanceOf(0, 0, 0), acceptanceOf(9, 1, 0), acceptanceOf(7, 2, 1), acceptanceOf(1, 4, 5)]) {
+      assert.equal(inspectPraeformaAcceptanceContract.post(inspectPraeformaAcceptance(e), e), true, JSON.stringify(e?.results));
+    }
+    assert.equal(typeof inspectPraeformaAcceptanceContract.post(inspectPraeformaAcceptance(acceptanceOf(9, 1, 0)), acceptanceOf(9, 1, 0, 0)), 'string');
+    assert.equal(typeof inspectPraeformaAcceptanceContract.post(inspectPraeformaAcceptance(acceptanceOf(9, 1, 0)), acceptanceOf(7, 2, 1)), 'string');
+  });
+
+  it('C-33 periodic review states', () => {
+    const withReviews = (c: ConcordiaEvidence | null, r: DomainReviewsEvidence | null) => ({ ...EMPTY_BUNDLE, concordia: c, domainReviews: r });
+    const posted: DomainReviewsEvidence = { code: 'Br', postCount: 1, latestPostedAt: daysAgo(3) };
+    const off = concordia({ flags: { dddEnabled: true, testsRequired: true, domainReview: false, contractEnabled: false } });
+    for (const b of [withReviews(null, posted), withReviews(off, posted), withReviews(concordia(), null), withReviews(concordia(), { ...posted, postCount: 0, latestPostedAt: null }), withReviews(concordia(), posted)]) {
+      assert.equal(judgePeriodicReviewContract.post(judgePeriodicReview(b), b), true, JSON.stringify(b.domainReviews));
+    }
+    assert.equal(typeof judgePeriodicReviewContract.post({ state: 'done', reasons: [], evidenceAt: daysAgo(3) }, withReviews(off, posted)), 'string');
+    assert.equal(typeof judgePeriodicReviewContract.post({ state: 'done', reasons: [], evidenceAt: null }, withReviews(concordia(), posted)), 'string');
+  });
+
+  it('C-34 review staleness', () => {
+    for (const at of [null, 'junk', daysAgo(10), daysAgo(30), daysAgo(31)]) {
+      assert.equal(reviewStaleReasonsContract.post(reviewStaleReasons(at, DEFAULT_STALE_POLICY, NOW), at, DEFAULT_STALE_POLICY, NOW), true, String(at));
+    }
+    assert.equal(typeof reviewStaleReasonsContract.post([], daysAgo(40), DEFAULT_STALE_POLICY, NOW), 'string');
+    assert.equal(typeof reviewStaleReasonsContract.post(['x'], daysAgo(1), DEFAULT_STALE_POLICY, NOW), 'string');
+  });
+
+  it('C-35 injected git configuration is dropped', () => {
+    const env = { GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'a', GIT_CONFIG_VALUE_0: 'b', GIT_CONFIG_KEY_1: 'c', GIT_CONFIG_VALUE_1: 'd', GIT_CONFIG_GLOBAL: 'g', PATH: 'p' };
+    for (const e of [env, {}, { PATH: 'p' }]) assert.equal(withoutGitConfigInjectionContract.post(withoutGitConfigInjection(e), e), true);
+    assert.equal(typeof withoutGitConfigInjectionContract.post({ PATH: 'p', GIT_CONFIG_COUNT: '2' }, env), 'string');
+    assert.equal(typeof withoutGitConfigInjectionContract.post({ PATH: 'p' }, env), 'string');
+  });
+
+  it('C-36 newest merged PRs of the repository', () => {
+    const list = [
+      { number: 1, repository: 'LUDIARS/Breviarium', status: 'merged', mergedAt: '2026-09-01T00:00:00Z' },
+      { number: 2, repository: 'LUDIARS/Breviarium', status: 'merged', mergedAt: '2026-09-03T00:00:00Z' },
+      { number: 3, repository: 'LUDIARS/Breviarium', status: 'open' },
+      { number: 4, repository: 'LUDIARS/Other', status: 'merged', mergedAt: '2026-09-09T00:00:00Z' },
+      { number: 5, repository: 'LUDIARS/Breviarium', status: 'merged', mergedAt: '2026-09-02T00:00:00Z' },
+    ];
+    for (const [l, limit] of [[list, 5], [list, 2], [[], 5], [{ prs: [] }, 5]] as const) {
+      assert.equal(latestMergedPrNumbersContract.post(latestMergedPrNumbers(l, 'LUDIARS/Breviarium', limit), l, 'LUDIARS/Breviarium', limit), true, JSON.stringify(l));
+    }
+    assert.equal(typeof latestMergedPrNumbersContract.post({ ok: true, value: [5, 2] }, list, 'LUDIARS/Breviarium', 2), 'string');
+    assert.equal(typeof latestMergedPrNumbersContract.post({ ok: true, value: [4, 2] }, list, 'LUDIARS/Breviarium', 2), 'string');
+    assert.equal(typeof latestMergedPrNumbersContract.post({ ok: true, value: [2, 1] }, list, 'LUDIARS/Breviarium', 2), 'string');
+  });
+
+  it('C-37 domain-review posts of the code', () => {
+    const body = { posts: [{ code: 'Br', posted_at: 1_790_000_000 }, { code: 'Br', posted_at: '2026-09-20T00:00:00Z' }, { code: 'Cc', posted_at: '2026-09-25T00:00:00Z' }] };
+    for (const b of [body, { posts: [] }, { items: [] }, null]) {
+      assert.equal(extractDomainReviewsEvidenceContract.post(extractDomainReviewsEvidence('Br', b), 'Br', b), true, JSON.stringify(b));
+    }
+    assert.equal(typeof extractDomainReviewsEvidenceContract.post({ ok: true, value: { code: 'Br', postCount: 3, latestPostedAt: '2026-09-25T00:00:00.000Z' } }, 'Br', body), 'string');
+    assert.equal(typeof extractDomainReviewsEvidenceContract.post({ ok: true, value: { code: 'Br', postCount: 2, latestPostedAt: '2026-09-20T00:00:00.000Z' } }, 'Br', body), 'string');
+  });
+
+  it('C-13 / C-14 with the CLIs and the hourly refresh configured', () => {
+    const env = { BREVIARIUM_DATA_DIR: 'E:/data', BREVIARIUM_HOST: '127.0.0.1', BREVIARIUM_PORT: '4370', BREVIARIUM_ANATOMIA_CLI: 'E:/Tools/anatomia.mjs', BREVIARIUM_REVISOR_CLI: 'E:/Tools/revisor.mjs', BREVIARIUM_REFRESH_INTERVAL_SEC: '3600' };
+    const config = loadConfig(env);
+    assert.equal(loadConfigContract.post(config, env), true);
+    assert.equal(describeHealthContract.post(describeHealth(config, NOW), config), true);
+    assert.equal(typeof describeHealthContract.post({ ...describeHealth(config, NOW), startedAt: 'E:/Tools/revisor.mjs' }, config), 'string');
+    const report = describeHealth(config, NOW);
+    assert.equal(typeof describeHealthContract.post({ ...report, sources: { ...report.sources, anatomiaCli: 'not_connected' } }, config), 'string');
   });
 
   it('C-27 Actio code', () => {

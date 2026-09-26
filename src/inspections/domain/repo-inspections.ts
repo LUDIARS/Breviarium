@@ -7,18 +7,18 @@ import type { EvidenceRef, Inspection } from './model.ts';
 import { ANALYSIS_PLAN_RANGE, SERVICE_PLAN_RANGE, tallyPlans } from './plan-status.ts';
 
 const NO_REPO = 'リポ成果物のスナップショットがない (未取得、または repoPath を読めない)';
-const CLI_NOT_RUN = 'Anatomia CLI の解析結果が要る。Breviarium は CLI を起動しない';
 
 function fileRef(label: string, fact: { path: string; modifiedAt: string }): EvidenceRef {
   return { label, location: fact.path, at: fact.modifiedAt };
 }
 
-/** Anatomia: domain-declarations (graded) / domain-coverage / verify (not measured without the CLI). */
-export function inspectAnatomia(e: AnatomiaEvidence | null, commit: string | null): Inspection[] {
+/**
+ * Anatomia domain-declarations (graded) from the checkout's declaration files. Coverage and verify
+ * come from the CLIs (anatomia-inspections.ts).
+ */
+export function inspectDomainDeclarations(e: AnatomiaEvidence | null, commit: string | null): Inspection[] {
   const tool = 'anatomia' as const;
-  const coverage = notMeasured({ tool, kind: 'domain-coverage', reason: CLI_NOT_RUN, commit });
-  const verify = notMeasured({ tool, kind: 'verify', reason: 'verify の結果は CLI の出力でリポに残らない', commit });
-  if (!e) return [notMeasured({ tool, kind: 'domain-declarations', reason: NO_REPO }), coverage, verify];
+  if (!e) return [notMeasured({ tool, kind: 'domain-declarations', reason: NO_REPO })];
   const valid = e.declarations.filter((d) => d.parsed && d.membershipCount > 0).length;
   const evidence: EvidenceRef[] = [{ label: 'ドメイン宣言', location: 'spec/domains/*.domain.json', at: e.latestDeclarationAt }];
   if (e.manifest) evidence.push(fileRef('Anatomia 生成物', e.manifest));
@@ -32,7 +32,7 @@ export function inspectAnatomia(e: AnatomiaEvidence | null, commit: string | nul
     measuredAt: latestOf([e.latestDeclarationAt, e.manifest?.modifiedAt]),
     commit,
   });
-  return [declarations, coverage, verify];
+  return [declarations];
 }
 
 function planInspection(e: RepoArtifactsEvidence, kind: string, range: { from: number; to: number }, notRequested: number, commit: string | null): Inspection {

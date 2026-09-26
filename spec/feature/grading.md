@@ -13,11 +13,11 @@ Inspection = { tool, kind, status, grade, score, scoreLabel, evidence[], measure
 - `status`: `graded` (A〜D を付けた) / `measured` (計測したがクラス基準が無い、または分母 0) / `not-measured` (未取得・未接続・API 未提供)。
 - `grade`: `A` / `B` / `C` / `D` / `—`。`graded` 以外は必ず `—`。**未計測を 0 点や推測で埋めない**
   (Omnipotens の not-requested と同じ方針)。
-- `score`: `graded` は比 (0〜1。ただし `terpsichore/sprint-health` は消化率 − 経過率の差 −1〜1)、`measured` は件数などの主な値、`not-measured` は `null`。
+- `score`: `graded` は比 (0〜1。ただし `terpsichore/sprint-health` は消化率 − 経過率の差 −1〜1、`anatomia/verify` は所見 (advisories) の数、`revisor/merge-risk` は最悪 band の順位 low 1〜critical 4)、`measured` は件数などの主な値、`not-measured` は `null`。
 - `evidence[]`: 証跡の場所 (リポ相対パス、または API パス。ホスト名は含めない) と日時。
 - `measuredAt`: 証跡の計測日時 (ファイル mtime・testedAt・updatedAt)。
 - `commit`: リポのファイルを証跡にする検査 (anatomia / omnipotens / vitia / discutere) は、git スナップショットの HEAD sha
-  (作業ツリーのファイルを読むので未コミット変更は区別しない)。Elegantia は評価コンテキストの build。その他は `null`。
+  (作業ツリーのファイルを読むので未コミット変更は区別しない)。Elegantia は評価コンテキストの build。`anatomia/verify` は判定した PR のマージ commit。その他は `null`。
 
 ## クラス閾値 (固定)
 
@@ -36,10 +36,10 @@ Inspection = { tool, kind, status, grade, score, scoreLabel, evidence[], measure
 | praeforma | ux-design | graded | ux-goal `definition` の文字列項目のうち空でない割合 (experience / design / goal / story / emotions …) |
 | praeforma | domains | graded | 説明 (`description`) のあるドメインの割合。0 件は measured |
 | praeforma | specs | graded | `status` が `draft` 以外の仕様の割合 (draft/confirmed 比)。0 件は measured |
-| praeforma | acceptance | not-measured | Pf の受入 API が未提供 (HTML が返る) ため使わない |
+| praeforma | acceptance | graded | Pf `GET /api/projects/:pid/acceptance/summary` の results の passed / (passed + failed + blocked)。受入 run 0 件・判定済み 0 件 (pending だけ) は measured (—)、API 未配備・未接続・未取得は not-measured |
 | anatomia | domain-declarations | graded | parse でき membership を 1 件以上持つ宣言の割合。0 件は measured |
-| anatomia | domain-coverage | not-measured | 所属率は Anatomia CLI の解析が必要。Breviarium は CLI を起動しない |
-| anatomia | verify | not-measured | 直近 verify の結果は CLI の出力で、リポに残らないため読めない |
+| anatomia | domain-coverage | graded | Anatomia CLI `domains program --project <id> --json` の `modules[]` のうち、宣言ドメイン層 (`layer` が空でない) に属する symbol の割合 (`symbolCount` で重み付け。module 数は `scoreLabel` に併記)。symbol 0 件は measured、CLI 未設定・project 未登録・未取得は not-measured |
+| anatomia | verify | graded | Revisor が直近にマージした PR (`mergedAt` が最新) の `anatomiaGate`: `passed` かつ所見 (advisories) 0 件 A / 所見あり B / `failed` D。マージ済み PR 無し・gate の記録無し・それ以外の status は measured (—)、Revisor 未接続・未取得は not-measured |
 | omnipotens | overall | graded | `omnipotens-summary.json` の `overallAssessment.score / maxScore` |
 | omnipotens | analysis-stages | graded | `spec/plan/03〜11` の frontmatter `status` が `complete` の割合 (分母は complete + partial + blocked)。status 未記載だけなら measured |
 | omnipotens | service-areas | graded | `spec/plan/13〜26` の同上 |
@@ -48,8 +48,12 @@ Inspection = { tool, kind, status, grade, score, scoreLabel, evidence[], measure
 | discutere | design-gaps | measured | Di ペーパーの論点 (Debate questions / 論点 / gap) と仮説 (Positions to test / 仮説 / hypothes) の項目数と最終更新 |
 | voluptas | survey | measured | JSON ファイル数と最新 mtime |
 | elegantia | quality | graded | `passed / (passed + failed + blocked + unverified)`。評価 0 件は measured。追加達成 (`additionalAchieved`) の割合は副スコアとして `scoreLabel` に出す |
-| concordia | harness | graded | `ddd_enabled` / `tests_required` / `domain_review` のうち有効な割合。open PR 数を `scoreLabel` に出す |
+| concordia | harness | graded | `ddd_enabled` / `tests_required` / `domain_review` のうち有効な割合。open PR 数を `scoreLabel` に出す。証跡に最新のドメインレビュー投稿 (`posted_at`) を並べる |
+| revisor | merge-risk | graded | Revisor が直近にマージした 5 件の `mergeRisk.band` の最悪: low A / medium B / high C / critical D。マージ済み PR 無し・band の記録無しは measured (—)、Revisor 未接続・未取得は not-measured |
 | terpsichore | sprint-health | graded | Actio のアクティブなスプリントの消化率 − 経過率 (下の表)。未接続は not-measured、チーム 0 件・アクティブなスプリント無し・タスク 0 件は measured (—) |
+
+Anatomia / Revisor の CLI 出力は件数・状態・日時だけを証跡にする (ファイル一覧・module id・PR 本文・タイトル・所見の文面・ローカルパスは保存しない)。
+Revisor の PR は `pr list --repository <bindings.githubRepo> --json` から status `merged` のものを `mergedAt` の新しい順に 5 件選び、`pr show <n> --json` で読む (共通の順序は `newestMergedFirst`)。
 
 設計書の Vitia「audit.json の value/performance 二軸」は、実データでは audit が lens 別スコアを持ち、
 市場性は Omnipotens summary の `vitiaScores` にあるため、`ux` (audit) と `marketability` (summary) の二軸に対応付けた。

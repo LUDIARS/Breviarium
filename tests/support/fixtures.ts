@@ -4,13 +4,17 @@ import type {
   ActioEvidence,
   ActioTeamFact,
   ActiveSprintFact,
+  AnatomiaCoverageEvidence,
   AnatomiaEvidence,
   ConcordiaEvidence,
+  DomainReviewsEvidence,
   ElegantiaEvidence,
   EvidenceBundle,
   GitEvidence,
+  PraeformaAcceptanceEvidence,
   PraeformaEvidence,
   RepoArtifactsEvidence,
+  RevisorEvidence,
   SprintTaskCounts,
   VoluptasEvidence,
 } from '../../src/inspections/domain/evidence.ts';
@@ -140,6 +144,47 @@ export function concordia(overrides: Partial<ConcordiaEvidence> = {}): Concordia
   };
 }
 
+/** Pf acceptance summary: 16 of 19 decided results passed (0.84 → B), one pending. */
+export function praeformaAcceptance(overrides: Partial<PraeformaAcceptanceEvidence> = {}): PraeformaAcceptanceEvidence {
+  return {
+    projectId: 'PF01',
+    runs: { total: 3, byStatus: { completed: 3 } },
+    latestRun: { status: 'completed', startedAt: daysAgo(2.1), finishedAt: daysAgo(2), version: '0.0.13' },
+    results: { total: 20, passed: 16, failed: 2, blocked: 1, pending: 1 },
+    specVersion: '0.0.13',
+    ...overrides,
+  };
+}
+
+/** Anatomia program domains: 570 of 600 symbols in a declared layer (0.95 → A). */
+export function anatomiaCoverage(overrides: Partial<AnatomiaCoverageEvidence> = {}): AnatomiaCoverageEvidence {
+  return {
+    project: 'br',
+    layersDeclared: true,
+    modules: { total: 25, classified: 20 },
+    symbols: { total: 600, classified: 570 },
+    domainCount: 5,
+    ...overrides,
+  };
+}
+
+/** Revisor: the newest merge passed the Anatomia gate with one advisory (B); the worst band is high (C). */
+export function revisor(overrides: Partial<RevisorEvidence> = {}): RevisorEvidence {
+  return {
+    repository: 'LUDIARS/Breviarium',
+    merged: [
+      { number: 12, mergedAt: daysAgo(0.5), mergeCommit: 'b'.repeat(40), anatomiaGate: { status: 'passed', advisoryCount: 1 }, mergeRisk: { band: 'low', score: 14 } },
+      { number: 11, mergedAt: daysAgo(1), mergeCommit: null, anatomiaGate: { status: 'passed', advisoryCount: 2 }, mergeRisk: { band: 'high', score: 48 } },
+    ],
+    ...overrides,
+  };
+}
+
+/** Cc domain-review posts: three posts, the newest five days ago (within the 30-day threshold). */
+export function domainReviews(overrides: Partial<DomainReviewsEvidence> = {}): DomainReviewsEvidence {
+  return { code: 'Br', postCount: 3, latestPostedAt: daysAgo(5), ...overrides };
+}
+
 /** Actio's contract example (`GET /api/projects/cc/KD/sprints`), as Actio sends it. */
 export function actioResponse(): Record<string, unknown> {
   return {
@@ -231,11 +276,15 @@ export function fullBundle(overrides: Partial<EvidenceBundle> = {}): EvidenceBun
   return {
     git: git(),
     praeforma: praeforma(),
+    praeformaAcceptance: praeformaAcceptance(),
     anatomia: anatomia(),
+    anatomiaCoverage: anatomiaCoverage(),
     repoArtifacts: repoArtifacts(),
     voluptas: voluptas(),
     elegantia: elegantia(),
     concordia: concordia(),
+    domainReviews: domainReviews(),
+    revisor: revisor(),
     actio: actio(),
     ...overrides,
   };
@@ -259,11 +308,15 @@ export function scriptedSource(id: SourceId, outcomes: readonly (SourceOutcome |
 const EVIDENCE: Readonly<Record<SourceId, unknown>> = {
   git: git(),
   praeforma: praeforma(),
+  'praeforma-acceptance': praeformaAcceptance(),
   anatomia: anatomia(),
+  'anatomia-cli': anatomiaCoverage(),
   'repo-artifacts': repoArtifacts(),
   voluptas: voluptas(),
   elegantia: elegantia(),
   concordia: concordia(),
+  'concordia-reviews': domainReviews(),
+  revisor: revisor(),
   actio: actio(),
 };
 
@@ -272,11 +325,15 @@ export function okSources(): Record<SourceId, SourceAdapter & { calls: number }>
   return {
     git: make('git'),
     praeforma: make('praeforma'),
+    'praeforma-acceptance': make('praeforma-acceptance'),
     anatomia: make('anatomia'),
+    'anatomia-cli': make('anatomia-cli'),
     'repo-artifacts': make('repo-artifacts'),
     voluptas: make('voluptas'),
     elegantia: make('elegantia'),
     concordia: make('concordia'),
+    'concordia-reviews': make('concordia-reviews'),
+    revisor: make('revisor'),
     actio: make('actio'),
   };
 }

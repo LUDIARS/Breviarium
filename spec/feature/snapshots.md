@@ -9,7 +9,7 @@
 ```
 SourceSnapshot = {
   projectCode, source, sourceVersion,
-  subject,         // 何を取得したか (例: praeforma:<projectId>、elegantia:<product>、actio:<code>、repo)
+  subject,         // 何を取得したか (例: praeforma:<projectId>、elegantia:<product>、actio:<code>、anatomia-cli:<project>、revisor:<owner/name>、repo)
   data,            // extractor が正規化した証跡。一度も成功していなければ null
   dataFetchedAt,   // data を取得できた日時
   attemptedAt,     // 最後に取得を試みた日時
@@ -31,6 +31,21 @@ SourceSnapshot = {
 - 同じプロジェクトの更新が走っている間の二重更新は `refresh_in_progress` (409) で断る。
 - 未知のソース id は `unknown_source` で断り、どのソースにも問い合わせない。
 
+## ソース (12 本)
+
+`git` / `praeforma` / `praeforma-acceptance` / `anatomia` / `anatomia-cli` / `repo-artifacts` / `voluptas` / `elegantia` /
+`concordia` / `concordia-reviews` / `revisor` / `actio` (`SOURCE_IDS`)。取得先ごとに別のソースとして持つので、1 つの失敗は
+そのソースの前回値だけを残し、ほかのソースの更新を止めない。
+
+| source | 未取得 (failed、理由を残して前回値保持) | 未接続 (not-connected) |
+|---|---|---|
+| praeforma-acceptance | 404 (API 未配備・プロジェクト無し)・HTML が返る (未配備)・形違い | `PRAEFORMA_URL` 未設定・bindings.praeformaProjectId 未登録 |
+| anatomia-cli | project 未登録 (CLI の `unknown project`)・CLI 不在・120 秒超過・非 0 終了・JSON でない出力 | `BREVIARIUM_ANATOMIA_CLI` 未設定 |
+| concordia-reviews | 404 (posts API 未配備)・接続不可・形違い | `CONCORDIA_URL` 未設定 |
+| revisor | CLI 不在・60 秒超過 (1 回の実行)・非 0 終了・形違い | `BREVIARIUM_REVISOR_CLI` 未設定・bindings.githubRepo 未登録 |
+
+CLI の stderr (ローカルパスを含み得る) は失敗の分類にだけ使い、`error` に保存しない。
+
 ## 鮮度
 
 `assessFreshness(snapshot, now, maxAgeMs)` → `{ state: fresh | stale | missing, reasons[], ageMs }`。
@@ -45,8 +60,16 @@ SourceSnapshot = {
 
 ## 定期更新
 
-`BR_REFRESH_INTERVAL_SEC` (既定 0 = 無効)。有効時は 60〜86400 秒の間隔で全プロジェクトを順に全ソース更新する。
-前回の周回が終わっていなければ次の周回は飛ばす。運用 (有効化) は範囲外。
+**1 時間ごとに全プロジェクトを refresh し、失敗したソースは前回値を保持する。**
+間隔は `BREVIARIUM_REFRESH_INTERVAL_SEC` (旧名 `BR_REFRESH_INTERVAL_SEC` も読む。コードの既定は 0 = 無効、有効時は 60〜86400 秒)。
+catalog (`excubitor.catalog.yaml`) は `3600` を設定する。
+
+- 周回は登録済みの全プロジェクトを **1 プロジェクトずつ直列に** 全ソース更新する (`startRefreshScheduler`)。
+- 手動 refresh と同じ refresher (`createRefresher`) を通すので、同じプロジェクトの更新が走っていれば後から来た方が
+  `refresh_in_progress` (API は 409) になる。定期側はそのプロジェクトをエラーにせず飛ばして次へ進み、手動側は 409 を受け取る。
+- ソースの失敗は `applyOutcome` で前回値を保持する (手動 refresh と同じ)。周回の失敗はログに出すだけで、次の周回を止めない。
+- 前回の周回が終わっていなければ次の周回は飛ばす (周回は重ならない)。
+- 止める: `BREVIARIUM_REFRESH_INTERVAL_SEC` を `0` にするか外して再起動する (従来どおり手動 refresh だけになる)。
 
 ## 復旧
 

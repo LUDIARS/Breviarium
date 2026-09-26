@@ -22,6 +22,8 @@ export interface HealthReport {
     readonly concordia: CapabilityState;
     readonly actio: CapabilityState;
     readonly voluptas: CapabilityState;
+    readonly anatomiaCli: CapabilityState;
+    readonly revisorCli: CapabilityState;
   };
   readonly refresh: { readonly periodic: 'disabled' | 'enabled'; readonly intervalSec: number };
   readonly access: { readonly cloudflareAccess: CapabilityState };
@@ -41,6 +43,8 @@ export function describeHealth(config: BreviariumConfig, startedAt: string): Hea
       concordia: state(config.concordiaUrl),
       actio: state(config.actioUrl),
       voluptas: state(config.voluptasDataDir),
+      anatomiaCli: state(config.anatomiaCliPath),
+      revisorCli: state(config.revisorCliPath),
     },
     refresh: { periodic: config.refreshIntervalSec > 0 ? 'enabled' : 'disabled', intervalSec: config.refreshIntervalSec },
     access: { cloudflareAccess: config.cloudflareAccess ? 'configured' : 'not_connected' },

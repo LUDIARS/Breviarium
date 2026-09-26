@@ -1,8 +1,8 @@
 // @implements SPEC-br-workflow
 import type { EvidenceBundle } from '../../inspections/domain/evidence.ts';
 import { STAGE_RULES } from './stage-rules.ts';
-import { STAGE_DEFINITIONS, type StageId, type StageState } from './stages.ts';
-import { staleReasons, type StalePolicy } from './staleness.ts';
+import { type StageDefinition, STAGE_DEFINITIONS, type StageId, type StageState } from './stages.ts';
+import { reviewStaleReasons, staleReasons, type StalePolicy } from './staleness.ts';
 
 export interface StageResult {
   readonly id: StageId;
@@ -13,10 +13,16 @@ export interface StageResult {
   readonly evidenceAt: string | null;
 }
 
+/** Why a done stage is stale, by the stage's own staleness rule. */
+function staleReasonsOf(def: StageDefinition, evidenceAt: string, head: string | null, policy: StalePolicy, now: string): string[] {
+  return def.staleness === 'review' ? reviewStaleReasons(evidenceAt, policy, now) : staleReasons(evidenceAt, head, policy, now);
+}
+
 /**
  * Evidence snapshots → stage states. Always returns the 8 stages plus the periodic review in
  * definition order. A done stage becomes stale when its evidence lags the HEAD commit or is
- * too old; a done stage whose evidence time is unknown stays done with that noted.
+ * too old (the periodic review: when its newest post is older than reviewStaleDays); a done
+ * stage whose evidence time is unknown stays done with that noted.
  */
 export function evaluateStages(bundle: EvidenceBundle, policy: StalePolicy, now: string): StageResult[] {
   const head = bundle.git?.headCommittedAt ?? null;
@@ -24,11 +30,11 @@ export function evaluateStages(bundle: EvidenceBundle, policy: StalePolicy, now:
     const j = STAGE_RULES[def.id](bundle);
     let state: StageState = j.state;
     let reasons = [...j.reasons];
-    if (j.state === 'done' && !def.staleExempt) {
+    if (j.state === 'done' && def.staleness !== 'never') {
       if (j.evidenceAt === null) {
         reasons = [...reasons, '証跡の日時なし (古さは判定しない)'];
       } else {
-        const stale = staleReasons(j.evidenceAt, head, policy, now);
+        const stale = staleReasonsOf(def, j.evidenceAt, head, policy, now);
         if (stale.length > 0) {
           state = 'stale';
           reasons = [...reasons, ...stale];

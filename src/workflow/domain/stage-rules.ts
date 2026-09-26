@@ -125,11 +125,19 @@ function stage8(b: EvidenceBundle): StageJudgement {
   return judge('not-started', reasons);
 }
 
-function periodic(b: EvidenceBundle): StageJudgement {
+/**
+ * Periodic Pf UX review: not started while Cc's domain_review is off, in progress while it is on
+ * but no review post is known (none posted, or the posts were never fetched), done with the newest
+ * post time as its evidence time. Whether that post is too old is decided by the review staleness.
+ */
+export function judgePeriodicReview(b: EvidenceBundle): StageJudgement {
   const c = b.concordia;
   if (!c?.registered) return judge('not-started', ['Cc の証跡なし、または未登録']);
-  if (c.flags.domainReview === true) return judge('in-progress', ['Cc domain_review 有効 (実施記録の取得元が未提供のため完了は判定しない)']);
-  return judge('not-started', ['Cc domain_review 無効']);
+  if (c.flags.domainReview !== true) return judge('not-started', ['Cc domain_review 無効']);
+  const r = b.domainReviews;
+  if (!r) return judge('in-progress', ['Cc domain_review 有効', 'レビュー投稿の証跡なし (未取得)']);
+  if (!r.latestPostedAt) return judge('in-progress', ['Cc domain_review 有効', 'レビュー投稿なし']);
+  return judge('done', ['Cc domain_review 有効', `レビュー投稿 ${r.postCount} 件`], r.latestPostedAt);
 }
 
 export const STAGE_RULES: Readonly<Record<StageId, (bundle: EvidenceBundle) => StageJudgement>> = {
@@ -141,5 +149,5 @@ export const STAGE_RULES: Readonly<Record<StageId, (bundle: EvidenceBundle) => S
   S6: stage6,
   S7: stage7,
   S8: stage8,
-  periodic,
+  periodic: judgePeriodicReview,
 };

@@ -65,7 +65,7 @@ describe('refresh and overview API', () => {
   it('refreshes the requested sources and serves the overview from snapshots', async () => {
     const { app, sources } = await appWithProject();
     const before = JSON.parse((await app.handle(req('GET', '/api/projects/Br/overview'))).body) as { staleSourceCount: number };
-    assert.equal(before.staleSourceCount, 8);
+    assert.equal(before.staleSourceCount, 12);
     const refreshed = await app.handle(req('POST', '/api/projects/Br/refresh', { sources: ['git', 'praeforma'] }));
     assert.equal(refreshed.status, 200);
     assert.equal(sources.git.calls + sources.praeforma.calls, 2);
@@ -192,6 +192,16 @@ describe('health', () => {
     assert.equal(body.sources['actio'], 'not_connected');
     assert.equal(body.refresh.periodic, 'disabled');
     assert.doesNotMatch(res.body, /8889/);
+  });
+
+  it('reports the Anatomia and Revisor CLIs as configured without their paths', async () => {
+    const { deps } = testDeps();
+    const env = { BREVIARIUM_DATA_DIR: 'data', BREVIARIUM_HOST: '127.0.0.1', BREVIARIUM_PORT: '4370', BREVIARIUM_ANATOMIA_CLI: 'E:/Tools/Anatomia/bin/anatomia.mjs' };
+    const res = await registerHealthRoute(createApp(deps), describeHealth(loadConfig(env), NOW)).handle(req('GET', '/health'));
+    const sources = (JSON.parse(res.body) as { sources: Record<string, string> }).sources;
+    assert.equal(sources['anatomiaCli'], 'configured');
+    assert.equal(sources['revisorCli'], 'not_connected');
+    assert.doesNotMatch(res.body, /Tools|anatomia\.mjs/);
   });
 
   it('reports the actio source as configured from ACTIO_URL without the URL', async () => {

@@ -23,9 +23,12 @@ const nodeTimers: SchedulerTimers = {
 };
 
 /**
- * Optional periodic refresh (`BR_REFRESH_INTERVAL_SEC`, disabled by default). A round that
- * is still running when the next tick arrives makes that tick a no-op, so rounds never
- * overlap. Failures are reported and never stop the schedule.
+ * Optional periodic refresh (`BREVIARIUM_REFRESH_INTERVAL_SEC`, disabled by default; the catalog
+ * runs it hourly). Each round refreshes one project at a time through the same refresher as the
+ * manual refresh, so a project already being refreshed by hand answers `refresh_in_progress`
+ * (409) and is skipped for this round. A round still running when the next tick arrives makes
+ * that tick a no-op, so rounds never overlap. A failing source keeps its previous data (the
+ * refresh use case); failures are reported and never stop the schedule.
  */
 export function startRefreshScheduler(
   intervalSec: number,

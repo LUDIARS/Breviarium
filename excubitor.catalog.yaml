@@ -9,6 +9,10 @@
 # それを読む (BREVIARIUM_<SOURCE>_URL を明示した場合だけそちらを優先する)。
 # provides を持たないソースは「未接続」のまま動く (推測で URL を組み立てない)。
 #
+# Anatomia / Revisor の CLI は BREVIARIUM_ANATOMIA_CLI / BREVIARIUM_REVISOR_CLI の絶対パスで渡す
+# (コードに既定のパスは持たない。外すとその 2 ソースは未接続になり、検査は従来どおり「—」)。
+# Breviarium は読み取りのサブコマンド (domains program / pr list / pr show) だけを execFile の引数配列で呼ぶ。
+#
 # 待受は loopback のみ (BREVIARIUM_HOST)。Internal 公開は同じ機械の Cloudflare Tunnel が
 # https://br${DOMAIN_ROOT} を http://127.0.0.1:4370 へ Host を保持して転送し、Cloudflare Access の
 # Allow ポリシーで利用者を絞る。Breviarium は Access の JWT を検証できた要求だけを閲覧専用 (GET/HEAD) で通す。
@@ -52,8 +56,12 @@ services:
       BREVIARIUM_SOURCE_TIMEOUT_MS: "5000"
       # Voluptas のローカルデータ。プロジェクト登録の bindings.voluptasPath はこの配下の相対パス。
       BREVIARIUM_VOLPUTAS_DATA_DIR: ${ARS_ROOT}/VolputasData
-      # 定期更新は既定で無効 (0)。有効にするときだけ 60 以上の秒数を入れる。
-      BR_REFRESH_INTERVAL_SEC: "0"
+      # 定期更新: 1 時間ごとに全プロジェクトを 1 つずつ refresh (失敗したソースは前回値を保持)。
+      # 止めるときは 0 にする (コードの既定も 0 = 無効)。
+      BREVIARIUM_REFRESH_INTERVAL_SEC: "3600"
+      # 所属率 (anatomia/domain-coverage) と verify / マージリスク (Revisor) の取得に使う CLI。
+      BREVIARIUM_ANATOMIA_CLI: ${ARS_ROOT}/Anatomia/bin/anatomia.mjs
+      BREVIARIUM_REVISOR_CLI: ${ARS_ROOT}/Revisor/src/cli.mjs
     required_env:
       - LUDIARS_ALLOWED_HOSTS
       - BREVIARIUM_HOST

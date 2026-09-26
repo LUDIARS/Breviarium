@@ -15,7 +15,7 @@
 | S6 | 再考 (Discutere) | repo-artifacts (Di ペーパーの mtime と段 3 完了時刻) |
 | S7 | Elegantia 評価 | elegantia (`/api/overview` の counts と最新 testedAt) |
 | S8 | 修正 | concordia (段 7 の評価以降に作られた / マージされた PR) + elegantia (評価日時) |
-| 定期 | Pf UX 準拠レビュー | concordia (`domain_review`) |
+| 定期 | Pf UX 準拠レビュー | concordia (`domain_review`)、concordia-reviews (`/v1/domain-review/posts` の最新 `posted_at`) |
 
 ## 段の状態
 
@@ -32,10 +32,11 @@
 | S6 | Di ペーパーの mtime が段 3 完了時刻 (summary と最終レポートの新しい方) より新しい | — | not-started |
 | S7 | 評価件数 (passed+failed+blocked+unverified) が 1 以上、かつ未評価 (`presence: none`) 0 件 | 評価件数 1 以上で未評価が残る | not-started |
 | S8 | 段 7 の最新 testedAt より後にマージされた PR があり、その後に作られた open PR が無い | 段 7 の最新 testedAt より後に作られた open PR がある | not-started |
-| 定期 | (初版では判定しない: 実施記録の取得元が未提供) | Cc の `domain_review` が有効 | not-started |
+| 定期 | Cc の `domain_review` が有効で、レビュー投稿がある (最新 `posted_at` が閾値を超えて古ければ stale) | `domain_review` が有効だが投稿なし (投稿を未取得のときを含む) | not-started (Cc 未登録・`domain_review` 無効) |
 
-定期レビューの `done` は、実施記録 (Cc の domain_review 実施日時、Anatomia domain-review の最終日時) を
-読める API / ファイルが無いため初版では出さない。有効化されていれば `in-progress` に留める (推測で done にしない)。
+定期レビューの実施記録は Concordia の `GET /v1/domain-review/posts?code=<略称>&limit=20` (ソース `concordia-reviews`、
+posted_at 降順) から取る。判定は純関数 `judgePeriodicReview(bundle)`: 最新の `posted_at` を証跡日時 (`evidenceAt`) にして `done`。
+投稿を取得できていない (API 未配備・未接続) ときは `in-progress` に留め、推測で `done` にしない。
 
 ## stale (古い)
 
@@ -46,6 +47,11 @@ S1 (立ち上げ) は失効しない。
 |---|---|---|---|
 | commit 遅れ | 証跡が HEAD の commit 日時より `staleCommitLagDays` 日を超えて古い (リポが証跡の後に進んだ) | 7 日 | `BREVIARIUM_STALE_COMMIT_LAG_DAYS` |
 | 経過日数 | 証跡が現在時刻より `staleAfterDays` 日を超えて古い | 30 日 | `BREVIARIUM_STALE_AFTER_DAYS` |
+| レビュー経過日数 (定期のみ) | 最新のレビュー投稿が現在時刻より `reviewStaleDays` 日を超えて古い | 30 日 | `BREVIARIUM_REVIEW_STALE_DAYS` |
+
+定期レビューは暦で回すもので commit ごとには行わないため、上の 2 規則 (commit 遅れ・経過日数) を使わず
+「レビュー経過日数」だけで古さを決める (`reviewStaleReasons`)。段ごとの規則は `StageDefinition.staleness`
+(`evidence` / `review` / `never`) で持つ。
 
 `evidenceAt` が取れない `done` の段は `done` のまま、理由に「証跡の日時なし」を並べる。
 HEAD の commit 日時は git スナップショットから取る (git が未取得なら commit 遅れの規則は使わない)。
@@ -59,3 +65,4 @@ HEAD の commit 日時は git スナップショットから取る (git が未�
 | S6 | Di ペーパーの mtime |
 | S7 | 最新 `testedAt` |
 | S8 | 段 7 以降にマージされた PR の最新 `merged_at` |
+| 定期 | 最新のレビュー投稿の `posted_at` |

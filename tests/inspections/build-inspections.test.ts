@@ -27,7 +27,7 @@ describe('inspections', () => {
     assert.equal(find(inspections, 'praeforma', 'ux-design').grade, 'C'); // 3/5
     assert.equal(find(inspections, 'praeforma', 'domains').grade, 'A'); // 4/4
     assert.equal(find(inspections, 'praeforma', 'specs').grade, 'A'); // 9/10
-    assert.equal(find(inspections, 'praeforma', 'acceptance').status, 'not-measured');
+    assert.equal(find(inspections, 'praeforma', 'acceptance').grade, 'B'); // 16/19 decided results passed
     const allDraft = buildInspections(fullBundle({ praeforma: praeforma({ specs: { total: 13, byStatus: { draft: 13 }, latestUpdatedAt: null } }) }));
     assert.equal(find(allDraft, 'praeforma', 'specs').grade, 'D');
   });

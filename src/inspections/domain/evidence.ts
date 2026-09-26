@@ -223,15 +223,75 @@ export interface ActioEvidence {
   readonly teams: readonly ActioTeamFact[];
 }
 
+/** Praeforma's acceptance summary (`GET /api/projects/:pid/acceptance/summary`): counts, run status and times only. */
+export interface PraeformaAcceptanceEvidence {
+  readonly projectId: string;
+  readonly runs: { readonly total: number; readonly byStatus: Readonly<Record<string, number>> };
+  /** null when Pf has no acceptance run for the project. */
+  readonly latestRun: {
+    readonly status: string | null;
+    readonly startedAt: string | null;
+    readonly finishedAt: string | null;
+    readonly version: string | null;
+  } | null;
+  readonly results: { readonly total: number; readonly passed: number; readonly failed: number; readonly blocked: number; readonly pending: number };
+  readonly specVersion: string | null;
+}
+
+/**
+ * Program-domain classification from `anatomia domains program --json`: counts only. The CLI's
+ * file lists, module ids and repository path are not kept.
+ */
+export interface AnatomiaCoverageEvidence {
+  /** Anatomia project id the CLI was asked for. */
+  readonly project: string;
+  /** Whether the project declares its layers (`.anatomia/layers.json`); null when the output did not say. */
+  readonly layersDeclared: boolean | null;
+  /** Modules / symbols in total and those classified into a declared domain layer. */
+  readonly modules: { readonly total: number; readonly classified: number };
+  readonly symbols: { readonly total: number; readonly classified: number };
+  readonly domainCount: number | null;
+}
+
+/** One merged Revisor PR as `revisor pr show <n> --json` reports it: the Anatomia gate and the merge risk only. */
+export interface MergedPrReviewFact {
+  readonly number: number;
+  readonly mergedAt: string | null;
+  /** Merge commit sha, when Revisor recorded one. */
+  readonly mergeCommit: string | null;
+  /** null when the PR carries no Anatomia gate result. Status is Revisor's lower-case value (`passed` / `failed` …). */
+  readonly anatomiaGate: { readonly status: string; readonly advisoryCount: number } | null;
+  /** null when the PR carries no merge-risk band. Band is Revisor's lower-case value (`low` … `critical`). */
+  readonly mergeRisk: { readonly band: string; readonly score: number | null } | null;
+}
+
+export interface RevisorEvidence {
+  /** GitHub repository (`owner/name`) the PRs belong to. */
+  readonly repository: string;
+  /** The newest merged PRs, newest first by mergedAt. */
+  readonly merged: readonly MergedPrReviewFact[];
+}
+
+/** Concordia's domain-review posts for one Cc code (`GET /v1/domain-review/posts`): count and newest time only. */
+export interface DomainReviewsEvidence {
+  readonly code: string;
+  readonly postCount: number;
+  readonly latestPostedAt: string | null;
+}
+
 /** Everything the stage and grade rules may read. A null entry means "no usable evidence". */
 export interface EvidenceBundle {
   readonly git: GitEvidence | null;
   readonly praeforma: PraeformaEvidence | null;
+  readonly praeformaAcceptance: PraeformaAcceptanceEvidence | null;
   readonly anatomia: AnatomiaEvidence | null;
+  readonly anatomiaCoverage: AnatomiaCoverageEvidence | null;
   readonly repoArtifacts: RepoArtifactsEvidence | null;
   readonly voluptas: VoluptasEvidence | null;
   readonly elegantia: ElegantiaEvidence | null;
   readonly concordia: ConcordiaEvidence | null;
+  readonly domainReviews: DomainReviewsEvidence | null;
+  readonly revisor: RevisorEvidence | null;
   /** Sprints: graded (terpsichore) and shown, never tied to a workflow stage. */
   readonly actio: ActioEvidence | null;
 }
@@ -239,10 +299,14 @@ export interface EvidenceBundle {
 export const EMPTY_BUNDLE: EvidenceBundle = {
   git: null,
   praeforma: null,
+  praeformaAcceptance: null,
   anatomia: null,
+  anatomiaCoverage: null,
   repoArtifacts: null,
   voluptas: null,
   elegantia: null,
   concordia: null,
+  domainReviews: null,
+  revisor: null,
   actio: null,
 };

@@ -34,7 +34,7 @@ async function main(): Promise<void> {
       snapshots,
       clock: systemClock,
       policy: {
-        stale: { staleAfterDays: config.staleAfterDays, staleCommitLagDays: config.staleCommitLagDays },
+        stale: { staleAfterDays: config.staleAfterDays, staleCommitLagDays: config.staleCommitLagDays, reviewStaleDays: config.reviewStaleDays },
         snapshotMaxAgeMs: config.snapshotMaxAgeHours * HOUR_MS,
       },
     },

@@ -58,6 +58,7 @@ const BINDING_PATTERNS: Readonly<Record<BindingKey, (value: string) => boolean>>
   voluptasPath: validVoluptasPath,
   githubRepo: (v) => /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(v),
   actioProjectCode: (v) => PROJECT_CODE_PATTERN.test(v),
+  anatomiaProject: (v) => /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(v),
 };
 
 /** Validates the binding set. Empty values mean "not bound"; unknown keys are refused. */

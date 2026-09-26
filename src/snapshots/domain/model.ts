@@ -1,5 +1,23 @@
 // @implements SPEC-br-snapshots
-export const SOURCE_IDS = ['git', 'praeforma', 'anatomia', 'repo-artifacts', 'voluptas', 'elegantia', 'concordia', 'actio'] as const;
+/**
+ * Every source, in display order. Each is fetched and kept separately, so a source that fails
+ * (an API not deployed yet, a CLI not found) keeps its own previous data without holding back
+ * the others.
+ */
+export const SOURCE_IDS = [
+  'git',
+  'praeforma',
+  'praeforma-acceptance',
+  'anatomia',
+  'anatomia-cli',
+  'repo-artifacts',
+  'voluptas',
+  'elegantia',
+  'concordia',
+  'concordia-reviews',
+  'revisor',
+  'actio',
+] as const;
 
 export type SourceId = (typeof SOURCE_IDS)[number];
 
@@ -10,11 +28,15 @@ export function isSourceId(value: string): value is SourceId {
 export const SOURCE_LABELS: Readonly<Record<SourceId, string>> = {
   git: 'git',
   praeforma: 'Praeforma',
+  'praeforma-acceptance': 'Praeforma (受入)',
   anatomia: 'Anatomia (リポ)',
+  'anatomia-cli': 'Anatomia (CLI 所属率)',
   'repo-artifacts': 'リポ成果物 (Omnipotens / Vitia / Discutere)',
   voluptas: 'Voluptas',
   elegantia: 'Elegantia',
   concordia: 'Concordia',
+  'concordia-reviews': 'Concordia (ドメインレビュー投稿)',
+  revisor: 'Revisor (マージ済み PR)',
   actio: 'Actio (スプリント)',
 };
 
@@ -22,11 +44,15 @@ export const SOURCE_LABELS: Readonly<Record<SourceId, string>> = {
 export const SOURCE_VERSIONS: Readonly<Record<SourceId, number>> = {
   git: 1,
   praeforma: 1,
+  'praeforma-acceptance': 1,
   anatomia: 1,
+  'anatomia-cli': 1,
   'repo-artifacts': 1,
   voluptas: 1,
   elegantia: 1,
   concordia: 1,
+  'concordia-reviews': 1,
+  revisor: 1,
   actio: 1,
 };
 

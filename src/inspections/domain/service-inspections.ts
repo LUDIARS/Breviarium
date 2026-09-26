@@ -1,8 +1,8 @@
 // @implements SPEC-br-grading
-import type { ConcordiaEvidence, ElegantiaEvidence, VoluptasEvidence } from './evidence.ts';
+import type { ConcordiaEvidence, DomainReviewsEvidence, ElegantiaEvidence, VoluptasEvidence } from './evidence.ts';
 import { ratioOf } from './grading.ts';
 import { graded, measured, notMeasured } from './inspection-factory.ts';
-import type { Inspection } from './model.ts';
+import type { EvidenceRef, Inspection } from './model.ts';
 
 /** Voluptas: survey (measured: JSON count and latest mtime). The location never names the bound path. */
 export function inspectVoluptas(e: VoluptasEvidence | null): Inspection[] {
@@ -47,12 +47,22 @@ export function inspectElegantia(e: ElegantiaEvidence | null): Inspection[] {
   ];
 }
 
-/** Concordia: harness = enabled share of ddd / tests / domain_review; open PR count as detail. */
-export function inspectConcordia(e: ConcordiaEvidence | null): Inspection[] {
+/** The newest domain-review post as an evidence line (its time is the evidence time). */
+function reviewPostEvidence(r: DomainReviewsEvidence): EvidenceRef {
+  const label = r.latestPostedAt ? `Cc ドメインレビュー投稿 (最新、${r.postCount} 件中)` : 'Cc ドメインレビュー投稿 (なし)';
+  return { label, location: `/v1/domain-review/posts?code=${encodeURIComponent(r.code)}`, at: r.latestPostedAt };
+}
+
+/**
+ * Concordia: harness = enabled share of ddd / tests / domain_review; open PR count as detail.
+ * The newest domain-review post (when fetched) is listed with the evidence.
+ */
+export function inspectConcordia(e: ConcordiaEvidence | null, reviews: DomainReviewsEvidence | null): Inspection[] {
   const tool = 'concordia' as const;
   if (!e) return [notMeasured({ tool, kind: 'harness', reason: 'Concordia のスナップショットがない (未接続・未取得)' })];
-  const evidence = [{ label: 'Cc プロジェクト略称表', location: '/v1/project-codes', at: null }];
+  const evidence: EvidenceRef[] = [{ label: 'Cc プロジェクト略称表', location: '/v1/project-codes', at: null }];
   if (e.githubRepo) evidence.push({ label: 'Cc PR 一覧', location: `/v1/prs?repository=${e.githubRepo}`, at: null });
+  if (reviews) evidence.push(reviewPostEvidence(reviews));
   if (!e.registered) return [notMeasured({ tool, kind: 'harness', reason: 'Cc の project-codes に未登録', evidence })];
   const flags: [string, boolean | null][] = [
     ['ddd', e.flags.dddEnabled],

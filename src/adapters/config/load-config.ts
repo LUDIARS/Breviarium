@@ -22,11 +22,17 @@ export interface BreviariumConfig {
   readonly concordiaUrl?: string;
   readonly actioUrl?: string;
   readonly voluptasDataDir?: string;
+  /** Anatomia CLI script (`bin/anatomia.mjs`); absent = the anatomia-cli source is not connected. */
+  readonly anatomiaCliPath?: string;
+  /** Revisor CLI script (`src/cli.mjs`); absent = the revisor source is not connected. */
+  readonly revisorCliPath?: string;
   /** 0 = periodic refresh disabled (default). */
   readonly refreshIntervalSec: number;
   readonly snapshotMaxAgeHours: number;
   readonly staleAfterDays: number;
   readonly staleCommitLagDays: number;
+  /** The periodic review stage is stale when its newest review post is older than this. */
+  readonly reviewStaleDays: number;
   /** Host / Origin values the Web entrance accepts. */
   readonly access: WebAccess;
   /** Access application the public entrance verifies against; absent = public requests get 503. */
@@ -39,6 +45,7 @@ export const CONFIG_DEFAULTS = {
   snapshotMaxAgeHours: 24,
   staleAfterDays: 30,
   staleCommitLagDays: 7,
+  reviewStaleDays: 30,
 } as const;
 
 export class ConfigError extends Error {}
@@ -72,14 +79,19 @@ function loopbackHost(env: Env): string {
   return host;
 }
 
+/** The periodic refresh interval's env name; the former `BR_` name is still read when the current one is not set. */
+const REFRESH_INTERVAL_KEYS = ['BREVIARIUM_REFRESH_INTERVAL_SEC', 'BR_REFRESH_INTERVAL_SEC'] as const;
+
 /** 0 disables the periodic refresh; any other value must be 60..86400 seconds. */
 function refreshInterval(env: Env): number {
-  const n = integer(env, 'BR_REFRESH_INTERVAL_SEC', 0, 86_400, CONFIG_DEFAULTS.refreshIntervalSec);
-  if (n !== 0 && n < 60) throw new ConfigError('BR_REFRESH_INTERVAL_SEC must be 0 (disabled) or at least 60');
+  const key = REFRESH_INTERVAL_KEYS.find((k) => env[k]?.trim()) ?? REFRESH_INTERVAL_KEYS[0];
+  const n = integer(env, key, 0, 86_400, CONFIG_DEFAULTS.refreshIntervalSec);
+  if (n !== 0 && n < 60) throw new ConfigError(`${key} must be 0 (disabled) or at least 60`);
   return n;
 }
 
-function optionalDir(env: Env, key: string): string | undefined {
+/** An optional absolute path (a directory or a CLI script); unset stays undefined, never a guessed location. */
+function optionalAbsolutePath(env: Env, key: string): string | undefined {
   const v = env[key]?.trim();
   if (!v) return undefined;
   if (!isAbsolute(v)) throw new ConfigError(`${key} must be an absolute path`);
@@ -109,7 +121,9 @@ export function loadConfig(env: Env): BreviariumConfig {
   const elegantiaUrl = asConfigError(() => resolveSourceUrl(env, 'ELEGANTIA'));
   const concordiaUrl = asConfigError(() => resolveSourceUrl(env, 'CONCORDIA'));
   const actioUrl = asConfigError(() => resolveSourceUrl(env, 'ACTIO'));
-  const voluptasDataDir = optionalDir(env, 'BREVIARIUM_VOLPUTAS_DATA_DIR');
+  const voluptasDataDir = optionalAbsolutePath(env, 'BREVIARIUM_VOLPUTAS_DATA_DIR');
+  const anatomiaCliPath = optionalAbsolutePath(env, 'BREVIARIUM_ANATOMIA_CLI');
+  const revisorCliPath = optionalAbsolutePath(env, 'BREVIARIUM_REVISOR_CLI');
   const cloudflareAccess = asConfigError(() => readCloudflareAccessConfig(env));
   return {
     dataDir: required(env, 'BREVIARIUM_DATA_DIR'),
@@ -121,10 +135,13 @@ export function loadConfig(env: Env): BreviariumConfig {
     ...(concordiaUrl ? { concordiaUrl } : {}),
     ...(actioUrl ? { actioUrl } : {}),
     ...(voluptasDataDir ? { voluptasDataDir } : {}),
+    ...(anatomiaCliPath ? { anatomiaCliPath } : {}),
+    ...(revisorCliPath ? { revisorCliPath } : {}),
     refreshIntervalSec: refreshInterval(env),
     snapshotMaxAgeHours: integer(env, 'BREVIARIUM_SNAPSHOT_MAX_AGE_HOURS', 1, 24 * 365, CONFIG_DEFAULTS.snapshotMaxAgeHours),
     staleAfterDays: integer(env, 'BREVIARIUM_STALE_AFTER_DAYS', 1, 3650, CONFIG_DEFAULTS.staleAfterDays),
     staleCommitLagDays: integer(env, 'BREVIARIUM_STALE_COMMIT_LAG_DAYS', 0, 3650, CONFIG_DEFAULTS.staleCommitLagDays),
+    reviewStaleDays: integer(env, 'BREVIARIUM_REVIEW_STALE_DAYS', 1, 3650, CONFIG_DEFAULTS.reviewStaleDays),
     access: asConfigError(() => buildWebAccess(port, env['LUDIARS_ALLOWED_HOSTS'], env['BREVIARIUM_VIEWER_ORIGINS'], env['BREVIARIUM_PUBLIC_URL'])),
     ...(cloudflareAccess ? { cloudflareAccess } : {}),
   };

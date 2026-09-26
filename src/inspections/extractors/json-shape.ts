@@ -17,6 +17,11 @@ export function num(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+/** A count: a missing, non-numeric or negative value counts as 0. */
+export function nonNegative(value: unknown): number {
+  return Math.max(0, num(value) ?? 0);
+}
+
 export function bool(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null;
 }

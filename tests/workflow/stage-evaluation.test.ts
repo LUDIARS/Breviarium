@@ -25,7 +25,7 @@ describe('stage evaluation', () => {
   it('marks every stage done or in progress with complete, recent evidence', () => {
     const stages = evaluate(fullBundle());
     for (const id of ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'] as const) assert.equal(stage(stages, id).state, 'done', id);
-    assert.equal(stage(stages, 'periodic').state, 'in-progress');
+    assert.equal(stage(stages, 'periodic').state, 'done');
     assert.equal(currentStage(stages)?.id, 'S8');
   });
 

@@ -12,9 +12,11 @@ export interface ProjectBindings {
   readonly githubRepo?: string;
   /** Cc code Actio knows the project by, when it differs from the registered code. */
   readonly actioProjectCode?: string;
+  /** Anatomia project id (`--project`), when it differs from the lower-case registered code. */
+  readonly anatomiaProject?: string;
 }
 
-export const BINDING_KEYS = ['praeformaProjectId', 'elegantiaProduct', 'voluptasPath', 'githubRepo', 'actioProjectCode'] as const;
+export const BINDING_KEYS = ['praeformaProjectId', 'elegantiaProduct', 'voluptasPath', 'githubRepo', 'actioProjectCode', 'anatomiaProject'] as const;
 
 export type BindingKey = (typeof BINDING_KEYS)[number];
 
