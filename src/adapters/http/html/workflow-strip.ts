@@ -2,7 +2,7 @@
 import { ANALYSIS_TIMING_LABELS, type AnalyzeItem } from '../../../workflow/domain/analyze-phase.ts';
 import { describeLifecycle, type LifecycleStatus } from '../../../workflow/domain/lifecycle.ts';
 import { ANALYZE_ITEMS, type PhaseEntryDefinition, SPRINT_STAGES, STAGE_STATE_LABELS, STAGE_STATES, type StageResult, STARTUP_STAGES } from '../../../workflow/domain/phases.ts';
-import type { WorkflowView } from '../../../workflow/domain/workflow-evaluation.ts';
+import { leadsWithSprint, type WorkflowView } from '../../../workflow/domain/workflow-evaluation.ts';
 import { esc } from './escape.ts';
 
 /** Lifecycle badge: 「スタートアップ」「スプリント N 週目 (M 週)」「リリース済み」「運用中」. */
@@ -38,14 +38,21 @@ function analyzeCells(items: readonly AnalyzeItem[]): string {
     .join('');
 }
 
-function row(name: string, cells: string): string {
-  return `<div class="phase-row"><span class="phase-name">${esc(name)}</span><ol class="phase-bar" aria-label="${esc(name)}">${cells}</ol></div>`;
+function row(name: string, cells: string, minor = false): string {
+  return `<div class="phase-row${minor ? ' phase-row-minor' : ''}"><span class="phase-name">${esc(name)}</span><ol class="phase-bar" aria-label="${esc(name)}">${cells}</ol></div>`;
 }
 
-/** Project-list row: startup 2 stages, loop 4 stages, analyses 3 items (late ones marked). */
+/**
+ * Project-list row: startup 2 stages, loop 4 stages, analyses 3 items (late ones marked). During a sprint
+ * the loop (P/D/C/A) leads and the startup follows last, smaller.
+ */
 export function workflowStrip(w: WorkflowView): string {
   const loopName = w.loop.sprint ? 'ループ' : 'ループ (スプリント外)';
-  return `<div class="phase-rows">${row('スタートアップ', stageCells(STARTUP_STAGES, w.startup.stages))}${row(loopName, stageCells(SPRINT_STAGES, w.loop.stages))}${row('アナライズ', analyzeCells(w.analyze.items))}</div>`;
+  const loop = row(loopName, stageCells(SPRINT_STAGES, w.loop.stages));
+  const analyze = row('アナライズ', analyzeCells(w.analyze.items));
+  const startupCells = stageCells(STARTUP_STAGES, w.startup.stages);
+  if (leadsWithSprint(w)) return `<div class="phase-rows">${loop}${analyze}${row('スタートアップ', startupCells, true)}</div>`;
+  return `<div class="phase-rows">${row('スタートアップ', startupCells)}${loop}${analyze}</div>`;
 }
 
 export function workflowLegend(): string {

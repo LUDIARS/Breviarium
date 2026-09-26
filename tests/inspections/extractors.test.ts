@@ -3,7 +3,8 @@ import { describe, it } from 'node:test';
 import { extractAnatomiaEvidence } from '../../src/inspections/extractors/anatomia.ts';
 import { extractConcordiaEvidence, pullRequestsFor } from '../../src/inspections/extractors/concordia.ts';
 import { extractElegantiaEvidence } from '../../src/inspections/extractors/elegantia.ts';
-import { extractGitEvidence } from '../../src/inspections/extractors/git.ts';
+import { extractGitEvidence, remoteHost } from '../../src/inspections/extractors/git.ts';
+import { extractGithubReleasesEvidence } from '../../src/inspections/extractors/github-releases.ts';
 import { countItemsUnderHeadings, parseFrontMatter } from '../../src/inspections/extractors/markdown-facts.ts';
 import { extractPraeformaEvidence } from '../../src/inspections/extractors/praeforma.ts';
 import { extractRepoArtifactsEvidence } from '../../src/inspections/extractors/repo-artifacts.ts';
@@ -14,13 +15,18 @@ const T = '2026-09-20T00:00:00.000Z';
 
 describe('git extractor', () => {
   it('reads sha, commit time, branch, tag count and the newest v tag (tags come newest first)', () => {
-    const r = extractGitEvidence({ head: `${SHA}\n2026-09-25T10:00:00+09:00\n`, branch: 'main\n', tags: 'v0.2.0\nv0.1.0\n' });
-    assert.deepEqual(r, { ok: true, value: { headSha: SHA, headCommittedAt: '2026-09-25T01:00:00.000Z', branch: 'main', tagCount: 2, latestVersionTag: 'v0.2.0' } });
+    const remotes = 'origin\thttps://user:ghp_token@github.com/LUDIARS/Breviarium.git (fetch)\norigin\thttps://user:ghp_token@github.com/LUDIARS/Breviarium.git (push)\n';
+    const r = extractGitEvidence({ head: `${SHA}\n2026-09-25T10:00:00+09:00\n`, branch: 'main\n', tags: 'v0.2.0\nv0.1.0\n', remotes });
+    assert.deepEqual(r, {
+      ok: true,
+      value: { headSha: SHA, headCommittedAt: '2026-09-25T01:00:00.000Z', branch: 'main', tagCount: 2, latestVersionTag: 'v0.2.0', origin: { host: 'github.com' } },
+    });
+    assert.doesNotMatch(JSON.stringify(r), /ghp_token|LUDIARS\/Breviarium/);
   });
 
   it('takes only `v` plus a digit as a release tag', () => {
     const tagged = (tags: string) => {
-      const r = extractGitEvidence({ head: `${SHA}\n${T}`, branch: 'main', tags });
+      const r = extractGitEvidence({ head: `${SHA}\n${T}`, branch: 'main', tags, remotes: '' });
       return r.ok ? r.value.latestVersionTag : 'refused';
     };
     assert.equal(tagged('mvp\nvendor-drop\nv1.0.0\nv0.9.0\n'), 'v1.0.0');
@@ -29,10 +35,26 @@ describe('git extractor', () => {
   });
 
   it('treats a detached HEAD as no branch and refuses unreadable output', () => {
-    const r = extractGitEvidence({ head: `${SHA}\n${T}`, branch: 'HEAD', tags: '' });
+    const r = extractGitEvidence({ head: `${SHA}\n${T}`, branch: 'HEAD', tags: '', remotes: 'upstream\thttps://github.com/x/y (fetch)\n' });
     assert.equal(r.ok && r.value.branch, null);
     assert.equal(r.ok && r.value.tagCount, 0);
-    assert.equal(extractGitEvidence({ head: 'fatal: bad', branch: '', tags: '' }).ok, false);
+    assert.equal(r.ok && r.value.origin, null, 'only origin counts');
+    assert.equal(extractGitEvidence({ head: 'fatal: bad', branch: '', tags: '', remotes: '' }).ok, false);
+  });
+
+  it('keeps only the host of the origin remote, and none for a local path', () => {
+    const cases: Array<[string, string | null]> = [
+      ['https://github.com/LUDIARS/Breviarium.git', 'github.com'],
+      ['https://x-access-token:secret@GitHub.com/LUDIARS/Breviarium', 'github.com'],
+      ['git@github.com:LUDIARS/Breviarium.git', 'github.com'],
+      ['ssh://git@gitlab.example.test:2222/team/repo.git', 'gitlab.example.test'],
+      ['E:/Document/Ars/Breviarium', null],
+      ['C:\\repos\\x', null],
+      ['/srv/git/x.git', null],
+      ['file:///srv/git/x.git', null],
+      ['../x', null],
+    ];
+    for (const [url, host] of cases) assert.equal(remoteHost(url), host, url);
   });
 });
 
@@ -72,6 +94,7 @@ describe('anatomia extractor', () => {
         { path: 'spec/domains/a.domain.json', text: '{ broken', modifiedAt: '2026-09-21T00:00:00.000Z' },
       ],
       manifest: { path: 'spec/data/generated/anatomia/manifest.json', text: '{"sourceRevision":"sha256:1"}', modifiedAt: T },
+      trackedFiles: [],
     });
     assert.equal(e.declaredCount, 2);
     assert.equal(e.unparsableCount, 1);
@@ -79,6 +102,50 @@ describe('anatomia extractor', () => {
     assert.equal(e.declarations[0]?.path, 'spec/domains/a.domain.json');
     assert.equal(e.latestDeclarationAt, '2026-09-21T00:00:00.000Z');
     assert.equal(e.manifest?.sourceRevision, 'sha256:1');
+  });
+
+  it('matches the parsed declarations pathPatterns against the indexed files and keeps counts only', () => {
+    const declaration = (name: string, membership: unknown[]) => ({ path: `spec/domains/${name}.domain.json`, text: JSON.stringify({ name, membership }), modifiedAt: T });
+    const e = extractAnatomiaEvidence({
+      declarations: [
+        declaration('inspections', [{ pathPattern: '(^|/)src/inspections/(?:.*/)?[^/]+$' }, { pathPattern: '(^|/)tests/inspections/' }]),
+        declaration('named', [{ namePattern: '^Grade' }, { pathPattern: '' }, { pathPattern: '([broken' }]),
+        { path: 'spec/domains/x.domain.json', text: '{ broken', modifiedAt: T },
+      ],
+      manifest: null,
+      trackedFiles: ['src/inspections/grading.ts', 'src/adapters/router.ts', 'tests/inspections/grading.test.ts', 'spec/domains/inspections.domain.json'],
+    });
+    assert.deepEqual(e.membership, { domains: 2, pathPatterns: 2, invalidPatterns: 1, implementationFiles: 2, matchedFiles: 1 });
+    assert.doesNotMatch(JSON.stringify(e), /grading\.ts|router\.ts/);
+  });
+});
+
+describe('github releases extractor', () => {
+  it('keeps tag, publication time and the pre-release flag, newest first, and drops entries without a usable tag', () => {
+    const body = [
+      { tagName: 'v0.1.0', publishedAt: '2026-09-01T00:00:00Z', isPrerelease: false, body: 'notes', author: { login: 'x' } },
+      { tagName: 'v0.2.0-rc.1', publishedAt: '2026-09-20T00:00:00Z', isPrerelease: true },
+      { tagName: 'v0.1.1', publishedAt: null },
+      { tagName: 'bad tag', publishedAt: '2026-09-21T00:00:00Z' },
+      { tagName: '' },
+      'not a release',
+    ];
+    const r = extractGithubReleasesEvidence('LUDIARS/Breviarium', body);
+    assert.deepEqual(r, {
+      ok: true,
+      value: {
+        repository: 'LUDIARS/Breviarium',
+        releases: [
+          { tag: 'v0.2.0-rc.1', publishedAt: '2026-09-20T00:00:00.000Z', prerelease: true },
+          { tag: 'v0.1.0', publishedAt: '2026-09-01T00:00:00.000Z', prerelease: false },
+          { tag: 'v0.1.1', publishedAt: null, prerelease: false },
+        ],
+      },
+    });
+    for (const bad of [null, {}, { releases: [] }, 'x']) {
+      const failed = extractGithubReleasesEvidence('LUDIARS/Breviarium', bad);
+      assert.equal(!failed.ok && failed.error.code, 'github_shape');
+    }
   });
 });
 
@@ -111,8 +178,10 @@ describe('repo artifacts extractor', () => {
       runPlan: { path: 'spec/data/omnipotens-run-plan.json', modifiedAt: T, text: JSON.stringify({ resolvedAnalysisIds: ['a'], notRequestedAnalysisIds: ['b', 'c'] }) },
       audit: { path: 'spec/data/vitia-game-experience-audit.json', modifiedAt: T, text: JSON.stringify({ status: 'blocked', blocked_by: ['compulsive_loop'] }) },
       finalReport: null,
+      serviceCatalog: { path: 'excubitor.catalog.yaml', modifiedAt: T, text: 'services:\n  - code: x\n    required_env:\n      - A\n' },
     });
     assert.deepEqual(e.plans.map((p) => [p.number, p.status]), [[3, 'complete'], [13, null]]);
+    assert.deepEqual(e.serviceCatalog, { path: 'excubitor.catalog.yaml', modifiedAt: T, services: [{ code: 'x', dependsOn: [], declarations: ['required_env'] }] });
     assert.equal(e.diPaper?.questionCount, 2);
     assert.equal(e.diPaper?.positionCount, 1);
     assert.equal(e.diPaper?.updated, '2026-07-16');
@@ -125,7 +194,7 @@ describe('repo artifacts extractor', () => {
   });
 
   it('keeps an unreadable summary as present without a score', () => {
-    const e = extractRepoArtifactsEvidence({ readme: null, productSpec: null, featureSpecCount: 0, plans: [], summary: { path: 's.json', modifiedAt: T, text: 'not json' }, runPlan: null, audit: null, finalReport: null });
+    const e = extractRepoArtifactsEvidence({ readme: null, productSpec: null, featureSpecCount: 0, plans: [], summary: { path: 's.json', modifiedAt: T, text: 'not json' }, runPlan: null, audit: null, finalReport: null, serviceCatalog: null });
     assert.equal(e.omnipotens.summary?.overall, null);
     assert.deepEqual(e.omnipotens.summary?.vitiaRatios, []);
   });

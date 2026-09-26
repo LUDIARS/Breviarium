@@ -86,7 +86,7 @@ describe('sprint loop', () => {
     const check = stage(loopOf(), 'sprint.evaluate');
     assert.equal(check.state, 'done');
     assert.equal(check.evidenceAt, daysAgo(3));
-    assert.ok(check.reasons.includes('Conflux の試遊コメントは未接続'));
+    assert.ok(check.reasons.includes('Conflux の試遊成果物・コメントは未接続'));
     assert.equal(stage(loopOf({ voluptas: voluptas({ latestModifiedAt: daysAgo(10) }) }), 'sprint.evaluate').state, 'not-started');
     assert.ok(stage(loopOf({ voluptas: null }), 'sprint.evaluate').reasons.includes('Voluptas 未取得'));
   });
@@ -100,7 +100,8 @@ describe('sprint loop', () => {
     assert.equal(retro.evidenceAt, '2026-10-05T16:00:00.000Z');
     const stale = stage(loopOf({ repoArtifacts: paper('2026-10-05T10:00:00.000Z') }, afterEnd), 'sprint.retro');
     assert.equal(stale.state, 'not-started');
-    assert.ok(stale.reasons.includes('Actio の集計にスプリントの close 履歴はない'));
+    assert.ok(stale.reasons.includes('Actio の集計にスプリントの close と振り返りメモはない'));
+    assert.ok(stale.reasons.includes('スプリント終了後の Discutere の再考ペーパー更新なし'));
   });
 
   it('keeps daily and refinement unmeasured (—) with the reason, never a guessed number', () => {

@@ -6,7 +6,7 @@ import { type SetupCheck, setupChecklist } from './setup-checklist.ts';
 export interface StartupPhase {
   /** `startup.mvp` then `startup.setup`. */
   readonly stages: readonly StageResult<StartupStageId>[];
-  /** The setup stage's five registrations. */
+  /** The setup stage's seven checks (関連設定 may not apply). */
   readonly checklist: readonly SetupCheck[];
 }
 
@@ -29,12 +29,25 @@ function judgeMvp(b: EvidenceBundle): StageJudgement {
   return judge('not-started', reasons);
 }
 
-/** Setup: done when every check is done, in progress with at least one, not started with none. */
+/** 「済 6/6、該当なし 1」: the done share of the applicable checks, and how many do not apply. */
+export function setupTally(checklist: readonly SetupCheck[]): string {
+  const applicable = checklist.filter((c) => c.applicable);
+  const notApplicable = checklist.length - applicable.length;
+  return `済 ${applicable.filter((c) => c.done).length}/${applicable.length}${notApplicable > 0 ? `、該当なし ${notApplicable}` : ''}`;
+}
+
+/** Setup: done when every applicable check is done, in progress with at least one, not started with none. */
 function judgeSetup(checklist: readonly SetupCheck[]): StageJudgement {
-  const done = checklist.filter((c) => c.done).length;
-  const reasons = [`済 ${done}/${checklist.length}`, ...checklist.filter((c) => !c.done).map((c) => `未: ${c.label}`)];
-  if (done === checklist.length) return judge('done', reasons);
+  const applicable = checklist.filter((c) => c.applicable);
+  const done = applicable.filter((c) => c.done).length;
+  const reasons = [setupTally(checklist), ...applicable.filter((c) => !c.done).map((c) => `未: ${c.label}`)];
+  if (applicable.length > 0 && done === applicable.length) return judge('done', reasons);
   return judge(done > 0 ? 'in-progress' : 'not-started', reasons);
+}
+
+/** Both startup stages (MVP and setup) are done; the project page then folds the phase away. */
+export function isStartupComplete(p: StartupPhase): boolean {
+  return p.stages.every((s) => s.state === 'done');
 }
 
 /** The startup phase before the loop: MVP, then the registrations the loop depends on. */

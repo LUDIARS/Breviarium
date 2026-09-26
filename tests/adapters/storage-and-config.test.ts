@@ -150,6 +150,37 @@ describe('config', () => {
     assert.throws(() => loadConfig({ ...base, BREVIARIUM_ANATOMIA_CLI: 'bin/anatomia.mjs' }), ConfigError);
   });
 
+  it('reads the service links: topology URLs for loopback users, the catalog-declared public URLs for viewers', () => {
+    const c = loadConfig({
+      ...base,
+      PRAEFORMA_URL: 'http://127.0.0.1:8889/',
+      ANATOMIA_URL: 'http://127.0.0.1:4200',
+      ACTIO_URL: 'http://127.0.0.1:17880',
+      ACTIO_FRONTEND_URL: 'http://127.0.0.1:5173',
+      BREVIARIUM_LINK_PRAEFORMA: 'https://pf.example.test',
+      BREVIARIUM_LINK_ACTIO: 'https://actio.example.test/',
+    });
+    assert.deepEqual(c.serviceLinks, {
+      local: { praeforma: 'http://127.0.0.1:8889', anatomia: 'http://127.0.0.1:4200', actio: 'http://127.0.0.1:5173' },
+      viewer: { praeforma: 'https://pf.example.test', actio: 'https://actio.example.test' },
+    });
+    assert.equal(loadConfig({ ...base, ACTIO_URL: 'http://127.0.0.1:17880' }).serviceLinks.local.actio, 'http://127.0.0.1:17880');
+    assert.deepEqual(loadConfig(base).serviceLinks, { local: {}, viewer: {} });
+    for (const bad of ['pf.example.test', 'ftp://pf.example.test', 'https://user:pw@pf.example.test', 'https://pf.example.test/base', 'https://pf.example.test/?x=1']) {
+      assert.throws(() => loadConfig({ ...base, BREVIARIUM_LINK_PRAEFORMA: bad }), /BREVIARIUM_LINK_PRAEFORMA/, bad);
+    }
+  });
+
+  it('bounds the Anatomia CLI run by BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS (default 120000, 1000..600000)', () => {
+    assert.equal(loadConfig(base).anatomiaCliTimeoutMs, 120_000);
+    assert.equal(loadConfig({ ...base, BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS: ' ' }).anatomiaCliTimeoutMs, 120_000);
+    assert.equal(loadConfig({ ...base, BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS: '300000' }).anatomiaCliTimeoutMs, 300_000);
+    assert.equal(loadConfig({ ...base, BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS: '600000' }).anatomiaCliTimeoutMs, 600_000);
+    for (const bad of ['600001', '999', '0', '-1', '12.5', 'slow']) {
+      assert.throws(() => loadConfig({ ...base, BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS: bad }), /BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS must be an integer in 1000\.\.600000/, bad);
+    }
+  });
+
   it('requires an absolute Voluptas data directory', () => {
     assert.throws(() => loadConfig({ ...base, BREVIARIUM_VOLPUTAS_DATA_DIR: 'relative/dir' }), ConfigError);
     assert.equal(loadConfig({ ...base, BREVIARIUM_VOLPUTAS_DATA_DIR: join(tmpdir(), 'v') }).voluptasDataDir, join(tmpdir(), 'v'));

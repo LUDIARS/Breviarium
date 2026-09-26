@@ -11,16 +11,44 @@ HTML はサーバ側レンダリング (テンプレートエンジン無し)。
 
 | 経路 | 内容 |
 |---|---|
-| `GET /` | 全プロジェクトの状態バッジ (スタートアップ / スプリント N 週目 (M 週) / リリース済み / 運用中、手動設定は「(手動設定)」) + 3 フェーズの小さな進捗 (スタートアップ 2 段 / ループ 4 段 / アナライズ 3 項目。段の状態は色と title・aria-label の文字で示し、アナライズは遅れ・推奨 (!) を示す) + ツールごとのクラスチップ + スプリントのチップ (「スプリント: <名> <done>/<total> (経過 xx%)」/「スプリントなし」/「スプリント: 未取得」) + 鮮度 (古いソース数)。登録フォーム |
-| `GET /projects/:code` | 状態と根拠 (自動判定 / 手動設定)、スタートアップ区画 (2 段のタイムライン + 整備チェックリスト 5 項目の済 / 未)、PDCA ループ区画 (スプリント名・期間、4 段のタイムライン、指標 2 つ、完成の定義)、アナライズ区画 (3 項目の最新解析・スプリントとの関係・推奨・根拠)、検査表 (tool/kind/クラス/値/証跡/計測日時/commit)、スプリント区画 (チームごとの名前・ゴール・期間・進捗バー・経過バー・件数・計画中・未割付、[sprints](sprints.md))、ソースの鮮度表 (取得日時・試行日時・エラー)、更新ボタン (全体・ソース別)、登録編集、削除 |
+| `GET /` | 全プロジェクトの状態バッジ (スタートアップ / スプリント N 週目 (M 週) / リリース済み / 運用中、手動設定は「(手動設定)」) + 3 フェーズの小さな進捗 (スタートアップ 2 段 / ループ 4 段 / アナライズ 3 項目。段の状態は色と title・aria-label の文字で示し、アナライズは遅れ・推奨 (!) を示す) + ツールごとのクラスチップ + スプリントのチップ (「スプリント: <名> <done>/<total> (経過 xx%)」/「スプリントなし」/「スプリント: 未取得」) + 鮮度 (古いソース数) + 外部サービスへの小さなリンク (下の節)。状態がスプリントの行はループ (P/D/C/A) を先に、スタートアップを後ろに小さく出す。登録フォーム |
+| `GET /projects/:code` | 状態と根拠 (自動判定 / 手動設定) と外部サービスへのリンク (下の節)、スタートアップ区画 (2 段のタイムライン + 整備チェックリスト 7 項目の済 / 未 / 該当なし)、PDCA ループ区画 (スプリント名・期間、スクラムの名前の 4 段のタイムラインと各段の説明・証跡、指標 2 つ、完成の定義 (Definition of Done))、アナライズ区画 (3 項目の最新解析・スプリントとの関係・推奨・根拠)、検査表 (tool/kind/クラス/値/証跡/計測日時/commit)、スプリント区画 (チームごとの名前・ゴール・期間・進捗バー・経過バー・件数・計画中・未割付、[sprints](sprints.md))、ソースの鮮度表 (取得日時・試行日時・エラー)、更新ボタン (全体・ソース別)、登録編集、削除 |
 | `GET /projects/:code/summary.md` | エグゼクティブサマリー (Markdown) の書き出し |
-| `GET /projects/:code/summary.json` | 同じ内容の JSON |
+| `GET /projects/:code/summary.json` | 同じ内容の JSON (`version: 3`。整備項目の該当可否とスクラム段の説明・証跡を含む) |
 | `POST /projects` | 登録フォーム → 303 で詳細へ |
 | `POST /projects/:code` | 編集フォーム → 303 で詳細へ |
 | `POST /projects/:code/refresh` | 更新ボタン (`source` を指定すればそのソースだけ) → 303 で詳細へ |
 | `POST /projects/:code/delete` | 削除 (`confirm` にコードを入力) → 303 で一覧へ |
 
 フォームの失敗は同じ画面に `?error=` で戻し、バナーで出す (入力値は再表示しない。コードと理由だけ)。
+
+### 詳細画面の区画の順序と折り畳み (neco 2026-09-26)
+
+- **スプリント中は PDCA ループが先**: 状態 (lifecycle) が `sprint` のプロジェクトは、スプリント (PDCA ループ) の区画をヘッダー直下
+  (スタートアップより上) に置く。それ以外は従来の順 (スタートアップ → スプリント → アナライズ)。判定は `leadsWithSprint(workflow)`。
+- **完了したスタートアップは閉じる**: スタートアップ区画は JavaScript なしで動く `<details>` / `<summary>`。2 段 (MVP・整備) が両方完了なら
+  閉じた状態で、summary 行に「スタートアップ 完了 (整備 7/7)」(該当なしがあれば「整備 6/6、該当なし 1」) と要約する。未完了なら `open` で開いた状態。
+  判定は `isStartupComplete(startup)`。閲覧者 (viewer) にも同じ。
+- 一覧の各行も同じ考え方: 状態がスプリントなら P/D/C/A の進捗を先に、スタートアップの進捗を後ろに小さく (`phase-row-minor`) 出す。
+- summary.md の節の順序は変えない (状態 → スタートアップ → PDCA ループ → アナライズ)。
+- 320px 幅・横スクロール禁止の規則 (W-1) はそのまま (summary の見出しは折り返す、`nowrap` を使わない)。
+
+### 外部サービスへの遷移 (ハブ化はしない)
+
+Praeforma / Anatomia / Actio への **リンクだけ** を出す (中身を取り込んだり埋め込んだりしない)。新しいタブで開く (`target="_blank" rel="noopener"`)。
+
+| リンク | 遷移先 | パスの根拠 (各リポの web ルート定義) |
+|---|---|---|
+| Praeforma で開く | bindings.praeformaProjectId があれば `/projects/<id>`、無ければトップ `/` | Praeforma `web/src/main.tsx` 72 行 `<Route path="projects/:pid" element={<ProjectShowPage />} />` |
+| Anatomia で開く | bindings.anatomiaProject があれば `/?project=<id>`、無ければトップ `/` | Anatomia `src/adapters/web/public/index.html` 3612〜3634 行 `bootFromDeeplink` (`parseDeeplink(location.search)` の `project` で登録プロジェクトを開く)、`deeplink-logic.js` 35 行 |
+| Actio の計画を開く | `/tasks/planning` (チームを指定するクエリは無い) | Actio `frontend/src/App.tsx` 67 行 `<Route path="/tasks/planning" element={<PlanningPage />} />`。`pages/PlanningPage.tsx` 23 行でチームは画面内の state (URL クエリを読まない) |
+
+- **基点 URL はアクセスレベルで出し分ける** (コードに実 URL を書かない): loopback の利用者 (`local`) には Excubitor の topology env
+  (`PRAEFORMA_URL` / `ANATOMIA_URL` / `ACTIO_FRONTEND_URL`、無ければ `ACTIO_URL`)、Cloudflare Access 経由の閲覧者 (`viewer`) には catalog の env で
+  宣言した公開 URL (`BREVIARIUM_LINK_PRAEFORMA` / `BREVIARIUM_LINK_ANATOMIA` / `BREVIARIUM_LINK_ACTIO`、`https://<svc>${DOMAIN_ROOT}`)。
+  未設定のサービスのリンクは出さない。origin 以外 (http(s) 以外・認証情報・パス・クエリ付き) の値は起動エラー (`readServiceLinks`)。
+- 置き場所: 詳細画面のヘッダー (状態の根拠の下)、一覧の各行 (小さく)、summary.md の「リンク:」行 1 つ。
+  summary.md は共有用なので **公開 URL だけ** を使う (loopback のアドレスは共有先で意味がなく、ホストを書き出さない)。
 
 Cloudflare Access 越しの閲覧者 (`viewer`) には登録フォーム・更新ボタン・編集/削除を出さず、ヘッダーに
 「閲覧のみ (Cloudflare Access)」を出す。書き込み系の経路は viewer には入口で 403 `read_only_viewer` になる

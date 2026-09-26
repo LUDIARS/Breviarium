@@ -1,6 +1,6 @@
 {
   "name": "platform-foundation",
-  "description": "基盤 (platform): 共有カーネル (Result/時刻)、設定読込、JSON ファイル保存、13 ソースの取得 adapter (git/praeforma/praeforma-acceptance/anatomia/anatomia-cli/repo-artifacts/voluptas/elegantia/concordia/concordia-reviews/revisor/actio/excubitor) と Anatomia / Revisor CLI の execFile 実行 (引数配列・env 調整・タイムアウト)、HTTP/HTML 配信面 (ルータ・API・画面・ワークフローとスプリントの表示・エクスポート)、Web 公開入口 (Host/Origin・Cloudflare Access 検証・閲覧専用レベル)、定期更新 (1 プロジェクトずつ直列)、composition root。業務判断は持たない。",
+  "description": "基盤 (platform): 共有カーネル (Result/時刻)、設定読込、JSON ファイル保存、14 ソースの取得 adapter (git/praeforma/praeforma-acceptance/anatomia/anatomia-cli/repo-artifacts/voluptas/elegantia/concordia/concordia-reviews/revisor/github-releases/actio/excubitor) と Anatomia / Revisor CLI・gh・git (ls-files で index の一覧) の execFile 実行 (引数配列・env 調整・タイムアウト。Anatomia CLI は BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS)、HTTP/HTML 配信面 (ルータ・API・画面・ワークフローとスプリントの表示 (スプリント中はループを先に、完了したスタートアップは折り畳む)・Praeforma / Anatomia / Actio へのリンク (アクセスレベル別の基点 URL、ハブ化しない)・エクスポート)、Web 公開入口 (Host/Origin・Cloudflare Access 検証・閲覧専用レベル)、定期更新 (1 プロジェクトずつ直列)、composition root。業務判断は持たない。",
   "presetRules": [],
   "templateRules": [],
   "membership": [
@@ -17,7 +17,7 @@
     { "pathPattern": "^spec/domains/platform-foundation\\.domain\\.json$" },
     { "pathPattern": "^(package\\.json|package-lock\\.json|tsconfig\\.json|\\.gitignore|\\.gitattributes|README\\.md|augur\\.contracts\\.json|cc\\.acceptance\\.json|excubitor\\.catalog\\.yaml)$" }
   ],
-  "cardTemplate": "Summarise the \"platform-foundation\" domain: shared kernel, config, JSON file storage, the thirteen source adapters (including Actio sprints, the Excubitor service list, Pf acceptance, Cc domain-review posts and the Anatomia / Revisor CLIs run through execFile with an argument array), HTTP+HTML delivery surface with the workflow and sprint views and exports, the public entrance (Host/Origin, Cloudflare Access verification, read-only viewer level), the serial periodic scheduler and the composition root. No business decisions live here.",
+  "cardTemplate": "Summarise the \"platform-foundation\" domain: shared kernel, config, JSON file storage, the fourteen source adapters (including Actio sprints, the Excubitor service list, Pf acceptance, Cc domain-review posts, GitHub releases through gh, the git index listing and the Anatomia / Revisor CLIs run through execFile with an argument array), HTTP+HTML delivery surface with the workflow and sprint views, the links out to Praeforma / Anatomia / Actio (per access level, not a hub) and exports, the public entrance (Host/Origin, Cloudflare Access verification, read-only viewer level), the serial periodic scheduler and the composition root. No business decisions live here.",
   "specRefs": [
     "spec/ux/product.md",
     "spec/architecture/overview.md",

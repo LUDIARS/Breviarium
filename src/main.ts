@@ -36,6 +36,7 @@ async function main(): Promise<void> {
       policy: { snapshotMaxAgeMs: config.snapshotMaxAgeHours * HOUR_MS },
     },
     refresh,
+    links: config.serviceLinks,
   };
   const router = registerHealthRoute(createApp(deps), describeHealth(config, systemClock.now()));
   const verifier = config.cloudflareAccess ? createAccessTokenVerifier(config.cloudflareAccess, createJwksFetcher(config.cloudflareAccess, fetch)) : undefined;

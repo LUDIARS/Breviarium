@@ -1,21 +1,24 @@
 // @implements SPEC-br-web-ui
 import type { ProjectOverview } from '../../../snapshots/application/project-overview.ts';
+import type { ServiceLinkBases } from '../../config/service-links-config.ts';
 import type { AccessLevel } from '../http-types.ts';
+import { serviceLinks } from '../service-links.ts';
 import { esc } from './escape.ts';
 import { shortSha, timeTag } from './format.ts';
 import { inspectionTable, toolChips } from './inspection-views.ts';
 import { banners, page, type PageNotice } from './layout.ts';
 import { projectFields } from './project-form.ts';
+import { serviceLinkList } from './service-link-views.ts';
 import { sourceTable } from './source-views.ts';
 import { sprintSection } from './sprint-views.ts';
-import { analyzeSection, lifecycleLines, loopSection, startupSection } from './workflow-sections.ts';
+import { lifecycleLines, workflowSections } from './workflow-sections.ts';
 
-function header(o: ProjectOverview): string {
+function header(o: ProjectOverview, links: ServiceLinkBases): string {
   const head = o.head
     ? `HEAD <code>${esc(shortSha(o.head.headSha))}</code> (${timeTag(o.head.headCommittedAt)}${o.head.branch ? `、${esc(o.head.branch)}` : '、detached'}、tag ${o.head.tagCount})`
     : 'HEAD 未取得';
   return `<section class="card"><div class="project-head"><h1>${esc(o.project.name)}</h1><code>${esc(o.project.code)}</code><span class="badge">${esc(o.project.classification)}</span></div>
-${lifecycleLines(o.workflow.lifecycle)}<p class="small">${head}</p>${toolChips(o.tools)}
+${lifecycleLines(o.workflow.lifecycle)}${serviceLinkList(serviceLinks(o.project, links))}<p class="small">${head}</p>${toolChips(o.tools)}
 <div class="actions"><a class="button-link secondary" href="${esc(`/projects/${encodeURIComponent(o.project.code)}/summary.md`)}">要約 (Markdown)</a><a class="button-link secondary" href="${esc(`/projects/${encodeURIComponent(o.project.code)}/summary.json`)}">要約 (JSON)</a></div></section>`;
 }
 
@@ -41,13 +44,15 @@ function editSection(o: ProjectOverview): string {
 }
 
 /**
- * `GET /projects/:code`: lifecycle, the startup / loop / analyze sections, inspections with evidence,
+ * `GET /projects/:code`: lifecycle with the links out to Praeforma / Anatomia / Actio (`links` = the bases for the
+ * request's access level), the startup / loop / analyze sections (the loop first during a sprint, the startup
+ * folded once complete), inspections with evidence,
  * snapshot freshness, refresh and edit. A Cloudflare Access viewer gets the same facts without any refresh, edit or delete form.
  */
-export function renderProjectPage(o: ProjectOverview, notice: PageNotice, level: AccessLevel): string {
+export function renderProjectPage(o: ProjectOverview, notice: PageNotice, level: AccessLevel, links: ServiceLinkBases = {}): string {
   const local = level === 'local';
-  const body = `${banners(notice)}${header(o)}
-${startupSection(o.workflow.startup)}${loopSection(o.workflow.loop)}${analyzeSection(o.workflow.analyze)}
+  const body = `${banners(notice)}${header(o, links)}
+${workflowSections(o.workflow)}
 <section class="card"><h2>検査とクラス</h2><p class="small muted">— は未計測 (0 点や推測で埋めない)。クラス基準は spec/feature/grading.md。</p>${inspectionTable(o.inspections)}</section>
 ${sprintSection(o.sprints)}
 ${refreshSection(o, local)}${local ? editSection(o) : ''}`;

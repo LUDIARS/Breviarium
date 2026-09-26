@@ -1,8 +1,9 @@
 // @implements SPEC-br-workflow
-import type { EvidenceBundle, ExcubitorEvidence, GitEvidence, RevisorEvidence } from '../../inspections/domain/evidence.ts';
+import type { EvidenceBundle, ExcubitorEvidence, GitEvidence, GithubReleasesEvidence, RevisorEvidence } from '../../inspections/domain/evidence.ts';
 import type { LifecycleKind } from '../../registry/domain/model.ts';
 import { daysBetweenDates, jstDate } from '../../shared/time.ts';
 import { type CurrentSprint, currentSprint } from './current-sprint.ts';
+import { latestExplicitRelease, releaseKindLabel } from './explicit-release.ts';
 
 export const LIFECYCLE_LABELS: Readonly<Record<LifecycleKind, string>> = {
   startup: 'スタートアップ',
@@ -64,14 +65,31 @@ function operatingSignal(e: ExcubitorEvidence | null): Signal {
   return { on, reason: `Excubitor: ${e.service} は ${e.state ?? '状態不明'}${e.autostart === true ? '・autostart' : ''}${on ? '' : ' (autostart なし)'}` };
 }
 
-/** Released: Revisor released a version, or the checkout has a `v` tag (the fallback when Revisor has none). */
-function releaseSignal(revisor: RevisorEvidence | null, git: GitEvidence | null): Signal {
+/** Version signals that no longer make a project released on their own, named so the reason explains the change. */
+function uncountedVersions(revisor: RevisorEvidence | null, git: GitEvidence | null): string {
   const version = revisor?.localVersion ?? null;
-  if (version && RELEASE_VERSION.test(version)) return { on: true, reason: `Revisor のリリース版 ${version}` };
-  if (git?.latestVersionTag && git.tagCount > 0) return { on: true, reason: `git tag ${git.latestVersionTag} (tag ${git.tagCount} 件)` };
-  const revisorPart = revisor ? `Revisor の版 ${version ?? '読めない'}` : 'Revisor 未取得';
-  const gitPart = git ? `v tag なし (tag ${git.tagCount} 件)` : 'git 未取得';
-  return { on: false, reason: `リリースなし (${revisorPart}、${gitPart})` };
+  const named = [
+    version && RELEASE_VERSION.test(version) ? `Revisor の版ファイル ${version}` : null,
+    git?.latestVersionTag ? `git tag ${git.latestVersionTag}` : null,
+  ].filter((part) => part !== null);
+  return named.length > 0 ? `。${named.join('・')} は明示的な Release ではないので数えない` : '';
+}
+
+/**
+ * Released: the bound GitHub repository has an explicit Release — a published major or minor update over
+ * the previous release. The initial release (Revisor publishes the bootstrap version on the first merge),
+ * a patch-only update, a Revisor version file or a git tag alone is not one.
+ */
+function releaseSignal(releases: GithubReleasesEvidence | null, revisor: RevisorEvidence | null, git: GitEvidence | null): Signal {
+  const latest = releases ? latestExplicitRelease(releases.releases) : null;
+  if (latest) return { on: true, reason: `最新 Release ${latest.tag} (${jstDate(latest.publishedAt) ?? '公開日不明'})` };
+  const newest = releases?.releases[0];
+  const why = !releases
+    ? 'GitHub Release 未取得: bindings.githubRepo 未登録・gh 不在・未取得'
+    : newest
+      ? `${releases.repository} に major / minor の更新 Release がない。最新の Release ${newest.tag} は ${releaseKindLabel(newest, releases.releases)}`
+      : `${releases.repository} の GitHub Release 0 件`;
+  return { on: false, reason: `リリースなし (${why})${uncountedVersions(revisor, git)}` };
 }
 
 function sprintSignal(current: CurrentSprint | null, actioFetched: boolean): Signal {
@@ -81,12 +99,13 @@ function sprintSignal(current: CurrentSprint | null, actioFetched: boolean): Sig
 
 /**
  * The project's lifecycle. A registered override wins; otherwise operating > released > sprint >
- * startup. `operating` is only judged from an Excubitor snapshot, never assumed.
+ * startup. `operating` is only judged from an Excubitor snapshot and `released` only from an explicit
+ * GitHub Release, never assumed.
  */
 export function resolveLifecycle(bundle: EvidenceBundle, override: LifecycleKind | null, now: string): LifecycleStatus {
   const current = currentSprint(bundle.actio);
   const operating = operatingSignal(bundle.excubitor);
-  const released = releaseSignal(bundle.revisor, bundle.git);
+  const released = releaseSignal(bundle.githubReleases, bundle.revisor, bundle.git);
   const sprinting = sprintSignal(current, bundle.actio !== null);
   const judged: LifecycleKind = operating.on ? 'operating' : released.on ? 'released' : sprinting.on ? 'sprint' : 'startup';
   const reasons = [operating.reason, released.reason, sprinting.reason];

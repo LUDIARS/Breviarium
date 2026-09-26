@@ -1,5 +1,5 @@
 // @implements SPEC-br-grading
-import { inspectDomainCoverage, inspectVerify } from './anatomia-inspections.ts';
+import { inspectDomainCoverage, inspectLayerAssignment, inspectVerify } from './anatomia-inspections.ts';
 import type { EvidenceBundle } from './evidence.ts';
 import type { Inspection } from './model.ts';
 import { inspectPraeforma, inspectPraeformaAcceptance } from './praeforma-inspections.ts';
@@ -18,7 +18,8 @@ export function buildInspections(bundle: EvidenceBundle): Inspection[] {
     ...inspectPraeforma(bundle.praeforma),
     ...inspectPraeformaAcceptance(bundle.praeformaAcceptance),
     ...inspectDomainDeclarations(bundle.anatomia, commit),
-    ...inspectDomainCoverage(bundle.anatomiaCoverage),
+    ...inspectDomainCoverage(bundle.anatomia, commit),
+    ...inspectLayerAssignment(bundle.anatomiaCoverage),
     ...inspectVerify(bundle.revisor),
     ...inspectOmnipotens(bundle.repoArtifacts, commit),
     ...inspectVitia(bundle.repoArtifacts, commit),

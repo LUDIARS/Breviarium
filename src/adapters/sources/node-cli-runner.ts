@@ -3,7 +3,7 @@ import { type ExecFileException, execFile } from 'node:child_process';
 import { stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-/** Runs one read-only command of a LUDIARS CLI and returns its stdout. */
+/** Runs one read-only command of a CLI (a LUDIARS Node CLI, or `gh`) and returns its stdout. */
 export type CliRunner = (args: readonly string[]) => Promise<string>;
 
 /** The CLI script is absent, the run took too long, or it ended with an error. */
@@ -25,14 +25,24 @@ export class CliRunError extends Error {
   }
 }
 
-export interface NodeCliOptions {
-  /** Absolute path of the CLI script (`.mjs`), run with the Node binary running Breviarium. */
-  readonly cliPath: string;
-  /** Name used in failure messages, e.g. `Anatomia CLI`. */
+export interface ExecFileOptions {
+  /** Name used in failure messages, e.g. `Anatomia CLI` or `gh`. */
   readonly label: string;
   readonly timeoutMs: number;
   /** The child's environment, derived from this process's environment at each run. */
   readonly env: (base: NodeJS.ProcessEnv) => NodeJS.ProcessEnv;
+}
+
+export interface NodeCliOptions extends ExecFileOptions {
+  /** Absolute path of the CLI script (`.mjs`), run with the Node binary running Breviarium. */
+  readonly cliPath: string;
+}
+
+/** An executable run directly: its file (a path, or a command name found on PATH), fixed leading arguments and working directory. */
+interface ExecTarget extends ExecFileOptions {
+  readonly file: string;
+  readonly leadingArgs: readonly string[];
+  readonly cwd?: string;
 }
 
 /** CLI JSON (a Revisor PR listing carries every PR body) can be large; beyond this the run fails instead of growing. */
@@ -53,12 +63,32 @@ async function assertCliFile(options: NodeCliOptions): Promise<void> {
   throw new CliRunError(`${options.label} が見つからない`, 'missing');
 }
 
-function runError(error: ExecFileException, stderr: string, name: string, options: NodeCliOptions): CliRunError {
+function runError(error: ExecFileException, stderr: string, name: string, options: ExecFileOptions): CliRunError {
   if (error.code === 'ENOENT') return new CliRunError(`${options.label} を起動できない`, 'missing');
   if (error.killed) return new CliRunError(`${name} が ${Math.round(options.timeoutMs / 1000)} 秒でタイムアウト`, 'timeout', stderr);
   if (error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return new CliRunError(`${name} の出力が大きすぎる`, 'exit', stderr);
   const exit = typeof error.code === 'number' ? ` (exit ${error.code})` : '';
   return new CliRunError(`${name} が失敗${exit}`, 'exit', stderr);
+}
+
+/** One run of the target through `execFile` with an argument array (never a shell); failures become CliRunError kinds. */
+function runTarget(target: ExecTarget, args: readonly string[]): Promise<string> {
+  const name = commandName(target.label, args);
+  return new Promise((resolve, reject) => {
+    execFile(
+      target.file,
+      [...target.leadingArgs, ...args],
+      {
+        ...(target.cwd ? { cwd: target.cwd } : {}),
+        timeout: target.timeoutMs,
+        windowsHide: true,
+        maxBuffer: MAX_OUTPUT_BYTES,
+        encoding: 'utf8',
+        env: target.env(process.env),
+      },
+      (error, stdout, stderr) => (error ? reject(runError(error, stderr, name, target)) : resolve(stdout)),
+    );
+  });
 }
 
 /**
@@ -68,25 +98,20 @@ function runError(error: ExecFileException, stderr: string, name: string, option
  * directory (not in a registered checkout) with the given environment.
  */
 export function createNodeCliRunner(options: NodeCliOptions): CliRunner {
+  const target: ExecTarget = { ...options, file: process.execPath, leadingArgs: [options.cliPath], cwd: dirname(options.cliPath) };
   return async (args) => {
     await assertCliFile(options);
-    const name = commandName(options.label, args);
-    return new Promise((resolve, reject) => {
-      execFile(
-        process.execPath,
-        [options.cliPath, ...args],
-        {
-          cwd: dirname(options.cliPath),
-          timeout: options.timeoutMs,
-          windowsHide: true,
-          maxBuffer: MAX_OUTPUT_BYTES,
-          encoding: 'utf8',
-          env: options.env(process.env),
-        },
-        (error, stdout, stderr) => (error ? reject(runError(error, stderr, name, options)) : resolve(stdout)),
-      );
-    });
+    return runTarget(target, args);
   };
+}
+
+/**
+ * A runner for an executable found on PATH (e.g. `gh`), with the same argument-array rules and failure
+ * kinds as a Node CLI: an absent command is `missing`, a run beyond the timeout `timeout`.
+ */
+export function createCommandRunner(command: string, options: ExecFileOptions): CliRunner {
+  const target: ExecTarget = { ...options, file: command, leadingArgs: [] };
+  return (args) => runTarget(target, args);
 }
 
 /** The CLI's `--json` output as a value; an unreadable output is a failure naming the CLI only. */

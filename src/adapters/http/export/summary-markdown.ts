@@ -4,6 +4,7 @@ import { TOOL_LABELS } from '../../../inspections/domain/model.ts';
 import { type DoneOfTotal, SPRINT_BOARD_TITLE } from '../../../inspections/domain/sprint-progress.ts';
 import { FRESHNESS_LABELS } from '../../../snapshots/domain/freshness.ts';
 import { SOURCE_LABELS } from '../../../snapshots/domain/model.ts';
+import type { ServiceLink } from '../service-links.ts';
 import { mdCell, mdTable as table } from './markdown-table.ts';
 import type { ExecutiveSummary, SprintSummary } from './summary-json.ts';
 import { renderWorkflowMarkdown } from './workflow-markdown.ts';
@@ -38,13 +39,24 @@ function renderSprints(s: SprintSummary | null): string {
   return `${title}\n\n${mdCell(meta)}\n\n${current}\n\n${detail}`;
 }
 
-/** Executive summary as Markdown, rendered from the shareable summary (never from the raw overview). */
-export function renderSummaryMarkdown(s: ExecutiveSummary): string {
+/** One line of Markdown links; parentheses in a URL are percent-encoded so they cannot end the link early. */
+function linkLine(links: readonly ServiceLink[]): string[] {
+  if (links.length === 0) return [];
+  const href = (url: string) => url.replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/ /g, '%20');
+  return [`リンク: ${links.map((l) => `[${mdCell(l.label)}](${href(l.href)})`).join(' ・ ')}`];
+}
+
+/**
+ * Executive summary as Markdown, rendered from the shareable summary (never from the raw overview), with one line
+ * of links out to the services (public URLs, given by the caller).
+ */
+export function renderSummaryMarkdown(s: ExecutiveSummary, links: readonly ServiceLink[] = []): string {
   const head = s.head ? `HEAD ${s.head.sha.slice(0, 10)} (${s.head.committedAt}${s.head.branch ? `, ${s.head.branch}` : ', detached'})` : 'HEAD 未取得';
   const parts = [
     `# ${mdCell(s.project.name)} (${mdCell(s.project.code)}) — エグゼクティブサマリー`,
     ...(s.notice ? [`> **${mdCell(s.notice)}**`] : []),
     `生成: ${s.generatedAt} ・ 分類: ${s.project.classification} ・ ${mdCell(head)}`,
+    ...linkLine(links),
     '表示はすべて Breviarium のスナップショット (キャッシュ) から。「—」は未計測。',
     renderWorkflowMarkdown(s.workflow),
     `## 検査クラス (ツール別)\n\n${table(['ツール', 'クラス'], s.tools.map((t) => [TOOL_LABELS[t.tool], t.grade]))}`,

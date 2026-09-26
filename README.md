@@ -43,9 +43,13 @@ npm test                    # node --test "tests/**/*.test.ts"
 | `BREVIARIUM_EXCUBITOR_URL` / `EXCUBITOR_URL` | | 未接続 | Excubitor (`GET /api/v1/services`、状態「運用中」の判定)。明示値が優先、無ければ topology env。Excubitor の catalog は現状 provides を持たないので、使うときは明示値を渡す。未接続なら運用中を判定しない |
 | `BREVIARIUM_VOLPUTAS_DATA_DIR` | | 未接続 | Voluptas のローカルデータ (絶対パス)。登録の `voluptasPath` はこの配下の相対パス |
 | `BREVIARIUM_REFRESH_INTERVAL_SEC` | | 0 (無効)、catalog は `3600` | 定期更新の間隔 (60〜86400)。1 プロジェクトずつ直列に全ソースを更新し、失敗したソースは前回値を保持。手動 refresh と重なったプロジェクトは 409 で片方を飛ばす。旧名 `BR_REFRESH_INTERVAL_SEC` も読む (新名が優先) |
-| `BREVIARIUM_ANATOMIA_CLI` | | 未接続、catalog は `${ARS_ROOT}/Anatomia/bin/anatomia.mjs` | Anatomia CLI (絶対パス)。所属率 `anatomia/domain-coverage` に使う |
-| `BREVIARIUM_REVISOR_CLI` | | 未接続、catalog は `${ARS_ROOT}/Revisor/src/cli.mjs` | Revisor CLI (絶対パス)。`anatomia/verify` と `revisor/merge-risk`、Revisor 登録 (整備チェックリスト) とリリース版 (状態) に使う |
+| `BREVIARIUM_ANATOMIA_CLI` | | 未接続、catalog は `${ARS_ROOT}/Anatomia/bin/anatomia.mjs` | Anatomia CLI (絶対パス)。層の割当率 `anatomia/layer-assignment` に使う (所属率 `anatomia/domain-coverage` は CLI を使わずリポの宣言と git の index から出す) |
+| `BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS` | | 120000、catalog も `120000` | Anatomia CLI 1 回の上限 (1000〜600000 ms。範囲外・整数でない値は起動エラー)。大きいプロジェクトで `domains program` が間に合わないときに延ばす。超えた回は理由付きの失敗で前回値を保持 |
+| `BREVIARIUM_REVISOR_CLI` | | 未接続、catalog は `${ARS_ROOT}/Revisor/src/cli.mjs` | Revisor CLI (絶対パス)。`anatomia/verify` と `revisor/merge-risk`、Revisor 登録 (整備チェックリスト) に使う (版ファイルは状態「リリース済み」の判定に使わない。判定は GitHub Release) |
 | `BREVIARIUM_SNAPSHOT_MAX_AGE_HOURS` | | 24 | これより古いスナップショットは「古い」 |
+| `BREVIARIUM_LINK_PRAEFORMA` | | 未設定、catalog は `https://pf${DOMAIN_ROOT}` | 閲覧者 (Cloudflare Access) 向けの「Praeforma で開く」リンクの基点 (公開 URL)。未設定ならリンクを出さない。loopback の利用者には topology env の `PRAEFORMA_URL` を使う |
+| `BREVIARIUM_LINK_ANATOMIA` | | 未設定、catalog は `https://anatomia${DOMAIN_ROOT}` | 同「Anatomia で開く」(loopback は `ANATOMIA_URL`) |
+| `BREVIARIUM_LINK_ACTIO` | | 未設定、catalog は `https://actio${DOMAIN_ROOT}` | 同「Actio の計画を開く」(loopback は `ACTIO_FRONTEND_URL`、無ければ `ACTIO_URL`)。origin 以外 (http(s) 以外・認証情報・パス・クエリ付き) は 3 変数とも起動エラー |
 
 旧 8 段の古さの設定 (`BREVIARIUM_STALE_AFTER_DAYS` / `BREVIARIUM_STALE_COMMIT_LAG_DAYS` / `BREVIARIUM_REVIEW_STALE_DAYS`) は
 廃止した (新しいワークフローに stale 状態は無い。設定されていても読まない)。
@@ -62,19 +66,20 @@ URL・CLI パス未設定、binding 未登録のソースは「未接続」に�
 
 | source | 読むもの | 設定 |
 |---|---|---|
-| git | 登録 checkout の HEAD・branch・tag 数・最新の `v` tag | 登録の repoPath |
+| git | 登録 checkout の HEAD・branch・tag 数・最新の `v` tag・`remote -v` の origin のホスト名だけ (URL・認証情報は持たない) | 登録の repoPath |
 | praeforma | Pf プロジェクトの ux-goal / domains / specs / spec-versions | `PRAEFORMA_URL`、bindings.praeformaProjectId |
 | praeforma-acceptance | `/api/projects/:pid/acceptance/summary` (run・結果の件数) | `PRAEFORMA_URL`、bindings.praeformaProjectId |
-| anatomia | checkout の `spec/domains/*.domain.json` と生成 manifest | 登録の repoPath |
-| anatomia-cli | `anatomia domains program --project <id> --json` の件数だけ (宣言ドメイン層に属する symbol / module の数) | `BREVIARIUM_ANATOMIA_CLI`、bindings.anatomiaProject (無ければ小文字の code) |
-| repo-artifacts | checkout の README・spec・Omnipotens / Vitia / Discutere 成果物 | 登録の repoPath |
+| anatomia | checkout の `spec/domains/*.domain.json` と生成 manifest、`git ls-files -z` (index の一覧。実装ファイルと pathPattern に一致した数だけ残し、ファイル名は残さない) | 登録の repoPath |
+| anatomia-cli | `anatomia domains program --project <id> --json` の件数だけ (宣言した層に割り当てられた symbol / module の数、layers.json の有無) | `BREVIARIUM_ANATOMIA_CLI`、`BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS`、bindings.anatomiaProject (無ければ小文字の code) |
+| repo-artifacts | checkout の README・spec・Omnipotens / Vitia / Discutere 成果物、リポ直下の `excubitor.catalog.yaml` (サービスの code・depends_on・関連設定の宣言の有無だけ) | 登録の repoPath |
 | voluptas | Voluptas データの JSON 件数と最新日時 | `BREVIARIUM_VOLPUTAS_DATA_DIR`、bindings.voluptasPath |
 | elegantia | `/api/overview?product=…` | `ELEGANTIA_URL`、bindings.elegantiaProduct |
 | concordia | `/v1/project-codes`、`/v1/prs` | `CONCORDIA_URL`、bindings.githubRepo |
 | concordia-reviews | `/v1/domain-review/posts?code=<略称>&limit=20` (投稿数と最新 `posted_at` だけ) | `CONCORDIA_URL` |
-| revisor | `revisor repo list --json` (登録の有無)、`pr list --repository <owner/name> --json` → 最新 merged 5 件の `pr show <n> --json` (anatomiaGate・mergeRisk・mergedAt だけ)、`version show --repo <checkout>` (リリース版) | `BREVIARIUM_REVISOR_CLI`、bindings.githubRepo |
+| revisor | `revisor repo list --json` (登録の有無)、`pr list --repository <owner/name> --json` → 最新 merged 5 件の `pr show <n> --json` (anatomiaGate・mergeRisk・mergedAt だけ)、`version show --repo <checkout>` (版ファイル。状態の判定には使わない) | `BREVIARIUM_REVISOR_CLI`、bindings.githubRepo |
+| github-releases | `gh release list --repo <owner/name> --exclude-drafts --limit 100 --json tagName,publishedAt,isPrerelease` (tag・公開日時・prerelease だけ)。直前の Release から major / minor を上げた Release があれば状態「リリース済み」 | PATH の `gh` (ログイン済み)、bindings.githubRepo |
 | actio | `/api/projects/cc/<code>/sprints` (件数・スプリント名・ゴール・日付だけ。タスク本文は持たない) | `ACTIO_URL`、bindings.actioProjectCode (無ければ登録 code) |
-| excubitor | `GET /api/v1/services` のうち対象サービスの有無・state・autostart だけ (host・pid・port・catalog は持たない) | `EXCUBITOR_URL`、bindings.excubitorService (無ければ小文字の code) |
+| excubitor | `GET /api/v1/services` のうち対象サービスの有無・state・autostart と全サービスの code、対象サービスの `GET /api/v1/services/<code>/env-config` の ready と不足件数だけ (host・pid・port・catalog・env のキーと値は持たない) | `EXCUBITOR_URL`、bindings.excubitorService (無ければ小文字の code) |
 
 ## 公開手順 (Cloudflare Tunnel + Access)
 
@@ -111,10 +116,10 @@ Breviarium は loopback (`127.0.0.1:4370`) だけで待ち受ける。Internal �
 
 | 経路 | 内容 |
 |---|---|
-| `GET /` | 全プロジェクトの状態バッジ (スタートアップ / スプリント N 週目 (M 週) / リリース済み / 運用中) + 3 フェーズの小さな進捗 (スタートアップ 2 段 / ループ 4 段 / アナライズ 3 項目の遅れ) + ツール別クラスのチップ + スプリントのチップ + 鮮度。登録フォーム |
-| `GET /projects/:code` | 状態と根拠・スタートアップ (整備チェックリスト)・PDCA ループ (4 段 + 2 指標)・アナライズ (3 項目)・検査表 (証跡・計測日時・commit)・スプリント区画 (Terpsichore: チームを回す)・ソースの鮮度と更新ボタン・登録の編集 (状態の上書きを含む)/削除 |
+| `GET /` | 全プロジェクトの状態バッジ (スタートアップ / スプリント N 週目 (M 週) / リリース済み / 運用中) + 3 フェーズの小さな進捗 (スタートアップ 2 段 / ループ 4 段 / アナライズ 3 項目の遅れ) + ツール別クラスのチップ + スプリントのチップ + 鮮度 + Praeforma / Anatomia / Actio へのリンク。スプリント中の行はループ P/D/C/A を先に、スタートアップを後ろに小さく。登録フォーム |
+| `GET /projects/:code` | 状態と根拠と外部リンク (Praeforma で開く / Anatomia で開く / Actio の計画を開く)・PDCA ループ (スクラムの 4 段 + 2 指標、スプリント中はヘッダー直下)・スタートアップ (整備チェックリスト 7 項目、完了なら折り畳み)・アナライズ (3 項目)・検査表 (証跡・計測日時・commit)・スプリント区画 (Terpsichore: チームを回す)・ソースの鮮度と更新ボタン・登録の編集 (状態の上書きを含む)/削除 |
 | `GET /projects/:code/summary.md` | エグゼクティブサマリー (Markdown) |
-| `GET /projects/:code/summary.json` | 同 (JSON、`version: 2`、`workflow` = 状態・スタートアップ・ループ・アナライズ)。ローカルパス・Voluptas パス・エラー本文は含めない |
+| `GET /projects/:code/summary.json` | 同 (JSON、`version: 3`、`workflow` = 状態・スタートアップ・ループ・アナライズ。整備項目の該当可否とスクラム段の説明・証跡を含む)。ローカルパス・Voluptas パス・エラー本文は含めない |
 
 ## API
 
@@ -122,7 +127,7 @@ Breviarium は loopback (`127.0.0.1:4370`) だけで待ち受ける。Internal �
 |---|---|
 | `GET /api/projects` / `POST /api/projects` | 一覧 / 登録 `{ code, name, repoPath, classification, bindings? }` |
 | `GET` / `PUT` / `DELETE /api/projects/:code` | 取得 / 更新 (bindings は丸ごと置換) / 削除 (スナップショットも消す) |
-| `POST /api/projects/:code/refresh` | 更新 `{ sources?: ["git","praeforma","praeforma-acceptance","anatomia","anatomia-cli","repo-artifacts","voluptas","elegantia","concordia","concordia-reviews","revisor","actio","excubitor"] }` |
+| `POST /api/projects/:code/refresh` | 更新 `{ sources?: ["git","praeforma","praeforma-acceptance","anatomia","anatomia-cli","repo-artifacts","voluptas","elegantia","concordia","concordia-reviews","revisor","github-releases","actio","excubitor"] }` |
 | `GET /api/projects/:code/overview` | スナップショットから組み立てた概要 |
 | `GET /health` | 生存のみ (ソースと Cloudflare Access は configured / not_connected、URL・team・AUD は出さない) |
 
@@ -137,10 +142,13 @@ Breviarium は loopback (`127.0.0.1:4370`) だけで待ち受ける。Internal �
 
 - `data/projects.json` (登録台帳) と `data/snapshots/<code>/<source>.json` (ソースごとの最新スナップショット)。
 - `data/` を消せば初期化される。スナップショットだけ消せば次の更新で作り直す。
-- 対象リポ・各ツールのデータは読むだけで書かない。Anatomia / Revisor の CLI は読み取りのサブコマンドだけを `execFile` の引数配列で呼び
-  (シェル補間なし、Revisor には Cc セッションの `GIT_CONFIG_*` を渡さない)、件数・状態・日時だけを保存する。
+- 対象リポ・各ツールのデータは読むだけで書かない。Anatomia / Revisor の CLI・gh・git は読み取りのサブコマンドだけを `execFile` の引数配列で呼び
+  (シェル補間なし、Revisor には Cc セッションの `GIT_CONFIG_*` を渡さない)、件数・状態・日時 (と Release の tag) だけを保存する。
 - 定期更新は 1 時間ごと (catalog)。失敗したソースは前回値を保持し、鮮度表に「古い」と理由が出る。
 - 新しい証跡を止める (従来どおりに戻す): `BREVIARIUM_ANATOMIA_CLI` / `BREVIARIUM_REVISOR_CLI` を外すとその 2 ソースは未接続
   (検査は前回値か「—」)。`BREVIARIUM_REFRESH_INTERVAL_SEC` を外すか `0` にすると定期更新が止まり、手動の更新だけになる。
 - 状態が証跡と合わないときは登録の `lifecycleOverride` で上書きできる (画面の「登録を編集」→「状態の上書き」)。空に戻せば自動判定。
-- git (版 2) と revisor (版 2) のスナップショットは形が変わったため、次の更新までは「未取得」扱いになる (更新すれば作り直す)。
+- git (版 3、origin のホスト名を追加)・revisor (版 2)・anatomia (版 2、所属率を追加)・repo-artifacts (版 2、catalog を追加)・excubitor (版 2、code 一覧と env-config を追加) のスナップショットは形が変わったため、次の更新までは「未取得」扱いになる (更新すれば作り直す)。
+- 状態「リリース済み」は GitHub Release に直前の Release から major / minor を上げた明示的な Release があるときだけ
+  (Revisor が bootstrap の版を最初のマージで自動公開する初回の Release、patch だけの更新、Revisor の版ファイル、`v` tag では決めない)。
+  gh が無い・未ログインなら `github-releases` は失敗 (前回値保持) で、一度も取れていなければリリース済みにしない。先に手で決めたいときは `lifecycleOverride`。

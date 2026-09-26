@@ -10,8 +10,11 @@ import { judge, type StageJudgement } from './phases.ts';
 /** Why Do / Check / Act are not judged: the loop runs inside Actio's active sprint only. */
 export const OUT_OF_SPRINT = 'スプリント外 (アクティブなスプリントなし)';
 
-/** No Conflux source exists yet; the Check stage says so instead of implying there were no play comments. */
-const CONFLUX_NOT_CONNECTED = 'Conflux の試遊コメントは未接続';
+/** No Conflux source exists yet; the review (Check) says so instead of implying there were no play comments. */
+const CONFLUX_NOT_CONNECTED = 'Conflux の試遊成果物・コメントは未接続';
+
+/** Actio's aggregate has no closed sprints or retrospective notes; the retrospective (Act) says so. */
+const NO_SPRINT_CLOSE = 'Actio の集計にスプリントの close と振り返りメモはない';
 
 /** Plan: tasks in the active sprint → done; a sprint without tasks, or planning sprints only → in progress. */
 export function judgePlan(actio: ActioEvidence | null, current: CurrentSprint | null): StageJudgement {
@@ -62,8 +65,9 @@ export function judgeBuild(b: EvidenceBundle, current: CurrentSprint, now: strin
 }
 
 /**
- * Check: Voluptas feedback updated within the period → done. The evidence has the newest answer time and
- * the total count only, so "in the period" means the newest answer is; Conflux is not connected.
+ * Check (sprint review): Voluptas feedback updated within the period → done. The evidence has the newest
+ * answer time and the total count only, so "in the period" means the newest answer is; Conflux's play
+ * builds and comments are not connected yet.
  */
 export function judgeEvaluate(v: VoluptasEvidence | null, current: CurrentSprint): StageJudgement {
   if (!v) return judge('not-started', ['Voluptas 未取得', CONFLUX_NOT_CONNECTED]);
@@ -74,13 +78,14 @@ export function judgeEvaluate(v: VoluptasEvidence | null, current: CurrentSprint
 }
 
 /**
- * Act: a Discutere paper updated after the sprint's end date → done. While the period runs it is not
- * started (the retrospective follows the sprint); Actio's aggregate carries no sprint close history.
+ * Act (sprint retrospective): a Discutere rethinking paper updated after the sprint's end date → done.
+ * While the period runs it is not started (the retrospective follows the sprint); Actio's aggregate carries
+ * no sprint close or retrospective notes.
  */
 export function judgeRetro(r: RepoArtifactsEvidence | null, current: CurrentSprint, today: string): StageJudgement {
-  if (daysBetweenDates(current.sprint.endsOn, today) <= 0) return judge('not-started', [`スプリント実施中 (${current.sprint.endsOn} 終了後に振り返り)`]);
+  if (daysBetweenDates(current.sprint.endsOn, today) <= 0) return judge('not-started', [`スプリント実施中 (${current.sprint.endsOn} 終了後にレトロスペクティブ)`]);
   const paper = r?.diPaper ?? null;
-  if (paper && isAtOrAfter(paper.modifiedAt, current.endsAt)) return judge('done', ['スプリント終了後に Discutere ペーパーを更新'], paper.modifiedAt);
-  const why = r ? (paper ? 'スプリント終了後の Discutere ペーパー更新なし' : 'Discutere ペーパーなし') : 'リポ成果物 未取得';
-  return judge('not-started', [why, 'Actio の集計にスプリントの close 履歴はない']);
+  if (paper && isAtOrAfter(paper.modifiedAt, current.endsAt)) return judge('done', ['スプリント終了後に Discutere の再考ペーパーを更新'], paper.modifiedAt);
+  const why = r ? (paper ? 'スプリント終了後の Discutere の再考ペーパー更新なし' : 'Discutere の再考ペーパーなし') : 'リポ成果物 未取得';
+  return judge('not-started', [why, NO_SPRINT_CLOSE]);
 }

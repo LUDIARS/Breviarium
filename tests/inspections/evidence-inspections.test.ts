@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { inspectDomainCoverage, inspectVerify } from '../../src/inspections/domain/anatomia-inspections.ts';
-import type { AnatomiaCoverageEvidence, MergedPrReviewFact, PraeformaAcceptanceEvidence, RevisorEvidence } from '../../src/inspections/domain/evidence.ts';
+import { inspectDomainCoverage, inspectLayerAssignment, inspectVerify } from '../../src/inspections/domain/anatomia-inspections.ts';
+import { buildInspections } from '../../src/inspections/domain/build-inspections.ts';
+import type {
+  AnatomiaCoverageEvidence,
+  AnatomiaEvidence,
+  MembershipCoverage,
+  MergedPrReviewFact,
+  PraeformaAcceptanceEvidence,
+  RevisorEvidence,
+} from '../../src/inspections/domain/evidence.ts';
 import type { Inspection } from '../../src/inspections/domain/model.ts';
 import { inspectPraeformaAcceptance } from '../../src/inspections/domain/praeforma-inspections.ts';
 import { inspectMergeRisk } from '../../src/inspections/domain/revisor-inspections.ts';
@@ -10,7 +18,7 @@ import { extractAnatomiaCoverageEvidence } from '../../src/inspections/extractor
 import { extractDomainReviewsEvidence } from '../../src/inspections/extractors/concordia-reviews.ts';
 import { extractPraeformaAcceptanceEvidence } from '../../src/inspections/extractors/praeforma-acceptance.ts';
 import { extractRevisorEvidence, latestMergedPrNumbers, revisorLocalVersion, revisorRegistration } from '../../src/inspections/extractors/revisor.ts';
-import { concordia } from '../support/fixtures.ts';
+import { anatomia, concordia, fullBundle, membership } from '../support/fixtures.ts';
 
 function only(inspections: readonly Inspection[]): Inspection {
   assert.equal(inspections.length, 1);
@@ -40,7 +48,44 @@ function acceptance(passed: number, failed: number, blocked: number, pending = 0
   };
 }
 
-describe('anatomia/domain-coverage', () => {
+describe('anatomia/domain-coverage (membership pathPatterns over the git index)', () => {
+  const membershipOf = (matchedFiles: number, implementationFiles: number, facts: Partial<MembershipCoverage> = {}): AnatomiaEvidence =>
+    anatomia({ membership: membership({ matchedFiles, implementationFiles, ...facts }) });
+
+  it('grades the matched implementation-file share at the fixed boundaries, with the HEAD commit', () => {
+    const cases: Array<[number, number, string]> = [[90, 100, 'A'], [8999, 10000, 'B'], [70, 100, 'B'], [6999, 10000, 'C'], [50, 100, 'C'], [49, 100, 'D'], [0, 100, 'D']];
+    for (const [matched, total, grade] of cases) assert.equal(only(inspectDomainCoverage(membershipOf(matched, total), 'c'.repeat(40))).grade, grade, `${matched}/${total}`);
+    const graded = only(inspectDomainCoverage(membershipOf(38, 40, { invalidPatterns: 1 }), 'c'.repeat(40)));
+    assert.equal(graded.status, 'graded');
+    assert.equal(graded.scoreLabel, '所属 38/40 ファイル (95%)・ドメイン 2・pathPattern 5・無効な正規表現 1');
+    assert.equal(graded.commit, 'c'.repeat(40));
+    assert.deepEqual(graded.evidence.map((e) => e.location), ['spec/domains/*.domain.json', 'git ls-files']);
+  });
+
+  it('is `—` without a declaration, a valid pattern or an implementation file, and not measured without a snapshot', () => {
+    const cases: Array<[Partial<MembershipCoverage>, string]> = [
+      [{ domains: 0, pathPatterns: 0 }, 'ドメイン宣言 0 件'],
+      [{ pathPatterns: 0, invalidPatterns: 2, matchedFiles: 0 }, '有効な membership.pathPattern 0 件 (宣言 2、無効な正規表現 2)'],
+      [{ implementationFiles: 0, matchedFiles: 0 }, '実装ファイル 0 件 (宣言 2、pathPattern 5)'],
+    ];
+    for (const [facts, label] of cases) {
+      const i = only(inspectDomainCoverage(anatomia({ membership: membership(facts) }), null));
+      assert.deepEqual({ status: i.status, grade: i.grade, score: i.score, label: i.scoreLabel }, { status: 'measured', grade: '—', score: null, label });
+    }
+    const missing = only(inspectDomainCoverage(null, null));
+    assert.equal(missing.status, 'not-measured');
+    assert.equal(missing.score, null);
+  });
+
+  it('no longer depends on .anatomia/layers.json: a project without layers is graded from its declarations', () => {
+    const inspections = buildInspections(fullBundle({ anatomiaCoverage: { ...coverage(0, 684), layersDeclared: false } }));
+    const find = (kind: string) => inspections.find((i) => i.tool === 'anatomia' && i.kind === kind);
+    assert.equal(find('domain-coverage')?.grade, 'A');
+    assert.deepEqual({ status: find('layer-assignment')?.status, grade: find('layer-assignment')?.grade }, { status: 'measured', grade: '—' });
+  });
+});
+
+describe('anatomia/layer-assignment (Anatomia CLI)', () => {
   it('counts modules and symbols in a declared layer and keeps nothing else', () => {
     const body = {
       repoPath: 'E:\\Document\\Ars\\X',
@@ -62,18 +107,24 @@ describe('anatomia/domain-coverage', () => {
     }
   });
 
-  it('grades the classified-symbol share at the fixed boundaries; no symbol is `—`, no snapshot is not measured', () => {
+  it('grades the layer-assigned symbol share at the fixed boundaries; no symbol is `—`, no snapshot is not measured', () => {
     const cases: Array<[number, number, string]> = [[90, 100, 'A'], [8999, 10000, 'B'], [70, 100, 'B'], [6999, 10000, 'C'], [50, 100, 'C'], [49, 100, 'D'], [0, 100, 'D']];
-    for (const [classified, total, grade] of cases) assert.equal(only(inspectDomainCoverage(coverage(classified, total))).grade, grade, `${classified}/${total}`);
-    const none = only(inspectDomainCoverage(coverage(0, 0)));
+    for (const [classified, total, grade] of cases) assert.equal(only(inspectLayerAssignment(coverage(classified, total))).grade, grade, `${classified}/${total}`);
+    const none = only(inspectLayerAssignment(coverage(0, 0)));
     assert.equal(none.status, 'measured');
     assert.equal(none.grade, '—');
-    const missing = only(inspectDomainCoverage(null));
+    const missing = only(inspectLayerAssignment(null));
     assert.equal(missing.status, 'not-measured');
     assert.equal(missing.score, null);
-    const graded = only(inspectDomainCoverage({ ...coverage(90, 100), layersDeclared: false }));
-    assert.match(graded.scoreLabel, /所属 90\/100 symbol \(90%\)・module 3\/4・ドメイン 3・\.anatomia\/layers\.json なし/);
+    const graded = only(inspectLayerAssignment({ ...coverage(90, 100), layersDeclared: null }));
+    assert.equal(graded.scoreLabel, '割当 90/100 symbol (90%)・module 3/4・ドメイン 3');
     assert.equal(graded.evidence[0]?.location, 'anatomia domains program --project br');
+  });
+
+  it('is measured `—` with the reason 層定義なし when .anatomia/layers.json is absent', () => {
+    const i = only(inspectLayerAssignment({ ...coverage(0, 684), layersDeclared: false }));
+    assert.deepEqual({ status: i.status, grade: i.grade, score: i.score, note: i.note }, { status: 'measured', grade: '—', score: null, note: '層定義なし' });
+    assert.match(i.scoreLabel, /^層定義なし \(\.anatomia\/layers\.json なし/);
   });
 });
 
@@ -140,6 +191,13 @@ describe('Revisor PRs, anatomia/verify and revisor/merge-risk', () => {
     assert.equal(b.commit, 'e'.repeat(40));
     assert.equal(b.evidence[0]?.location, 'revisor pr show 2');
     assert.equal(only(inspectVerify(null)).status, 'not-measured');
+  });
+
+  it('a GitHub-workflow project without Revisor PRs stays `—` for verify and merge-risk, never D', () => {
+    for (const i of [...inspectVerify(revisorOf([])), ...inspectMergeRisk(revisorOf([]))]) {
+      assert.deepEqual({ kind: i.kind, status: i.status, grade: i.grade }, { kind: i.kind, status: 'measured', grade: '—' });
+    }
+    for (const i of [...inspectVerify(null), ...inspectMergeRisk(null)]) assert.equal(i.grade, '—');
   });
 
   it('merge-risk: the worst band of the newest five — low A, medium B, high C, critical D; no band `—`', () => {

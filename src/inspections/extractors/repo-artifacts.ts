@@ -11,6 +11,7 @@ import type {
 import { DI_PAPER_NUMBER } from '../domain/plan-status.ts';
 import { asArray, asRecord, num, parseJson, str, strList } from './json-shape.ts';
 import { countItemsUnderHeadings, parseFrontMatter } from './markdown-facts.ts';
+import { extractServiceCatalog } from './service-catalog.ts';
 
 /** A repository file as read by the adapter. `text` is present only for files whose content is needed. */
 export interface RepoFileRaw {
@@ -29,6 +30,8 @@ export interface RepoArtifactsRaw {
   readonly runPlan: RepoFileRaw | null;
   readonly audit: RepoFileRaw | null;
   readonly finalReport: RepoFileRaw | null;
+  /** `excubitor.catalog.yaml` at the checkout root, with its text. */
+  readonly serviceCatalog: RepoFileRaw | null;
 }
 
 export const QUESTION_HEADINGS = /debate questions|questions|論点|問い|gap|ギャップ/i;
@@ -93,7 +96,10 @@ function auditOf(file: RepoFileRaw): VitiaAuditFact {
   return { ...fact(file), status: str(doc?.['status']) ?? (doc ? 'unknown' : 'unreadable'), lenses, blockedBy: strList(doc?.['blocked_by']) };
 }
 
-/** Normalises the repository's Omnipotens / Vitia / Discutere / foundation artefacts (existence, mtime, a few fields). */
+/**
+ * Normalises the repository's Omnipotens / Vitia / Discutere / foundation artefacts (existence, mtime, a few
+ * fields) and its service-owned Excubitor catalog (codes and declarations only).
+ */
 export function extractRepoArtifactsEvidence(raw: RepoArtifactsRaw): RepoArtifactsEvidence {
   const plans: PlanDocFact[] = [];
   let diPaper: DiPaperFact | null = null;
@@ -118,5 +124,6 @@ export function extractRepoArtifactsEvidence(raw: RepoArtifactsRaw): RepoArtifac
     },
     vitiaAudit: raw.audit ? auditOf(raw.audit) : null,
     diPaper,
+    serviceCatalog: raw.serviceCatalog ? { ...fact(raw.serviceCatalog), services: extractServiceCatalog(raw.serviceCatalog.text ?? '') } : null,
   };
 }

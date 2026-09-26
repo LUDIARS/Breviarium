@@ -5,12 +5,20 @@ import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { anatomiaProjectId, createAnatomiaCliRunner, createAnatomiaCliSource } from '../../src/adapters/sources/anatomia-cli-source.ts';
 import { createConcordiaReviewsSource, domainReviewsPath } from '../../src/adapters/sources/concordia-reviews-source.ts';
-import { createExcubitorSource, EXCUBITOR_SERVICES_PATH, excubitorServiceCode } from '../../src/adapters/sources/excubitor-source.ts';
+import { createExcubitorSource, EXCUBITOR_SERVICES_PATH, envConfigPath, excubitorServiceCode } from '../../src/adapters/sources/excubitor-source.ts';
+import { createGithubReleasesSource } from '../../src/adapters/sources/github-releases-source.ts';
 import type { FetchLike } from '../../src/adapters/sources/http-json.ts';
-import { type CliRunner, CliRunError, createNodeCliRunner } from '../../src/adapters/sources/node-cli-runner.ts';
+import { type CliRunner, CliRunError, createCommandRunner, createNodeCliRunner } from '../../src/adapters/sources/node-cli-runner.ts';
 import { acceptanceSummaryPath, createPraeformaAcceptanceSource } from '../../src/adapters/sources/praeforma-acceptance-source.ts';
 import { createRevisorCliRunner, createRevisorSource, withoutGitConfigInjection } from '../../src/adapters/sources/revisor-source.ts';
-import type { AnatomiaCoverageEvidence, DomainReviewsEvidence, ExcubitorEvidence, PraeformaAcceptanceEvidence, RevisorEvidence } from '../../src/inspections/domain/evidence.ts';
+import type {
+  AnatomiaCoverageEvidence,
+  DomainReviewsEvidence,
+  ExcubitorEvidence,
+  GithubReleasesEvidence,
+  PraeformaAcceptanceEvidence,
+  RevisorEvidence,
+} from '../../src/inspections/domain/evidence.ts';
 import { registerProject } from '../../src/registry/application/registry-use-cases.ts';
 import type { SourceId, SourceSnapshot } from '../../src/snapshots/domain/model.ts';
 import type { SourceAdapter } from '../../src/snapshots/ports.ts';
@@ -110,7 +118,7 @@ describe('anatomia-cli source', () => {
     const cases: Array<[string | Error, RegExp]> = [
       [UNKNOWN_PROJECT, /^Anatomia に project br が未登録 \(bindings\.anatomiaProject を確認\)$/],
       [new CliRunError('Anatomia CLI が見つからない', 'missing'), /Anatomia CLI が見つからない \(BREVIARIUM_ANATOMIA_CLI を確認\)/],
-      [new CliRunError('Anatomia CLI (domains program) が 120 秒でタイムアウト', 'timeout'), /120 秒でタイムアウト/],
+      [new CliRunError('Anatomia CLI (domains program) が 120 秒でタイムアウト', 'timeout'), /120 秒でタイムアウト \(BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS で延ばせる\)$/],
       ['not json', /JSON として読めない/],
       ['{"repoPath":"E:\\\\x"}', /anatomia_shape/],
     ];
@@ -370,7 +378,7 @@ describe('node CLI runner (real child processes)', () => {
   });
 
   it('Anatomia runs with its telemetry off, Revisor without the injected git configuration', async () => {
-    const anatomia = JSON.parse(await createAnatomiaCliRunner(script('echo.mjs'))(['domains'])) as { env: Record<string, string | null> };
+    const anatomia = JSON.parse(await createAnatomiaCliRunner(script('echo.mjs'), 20_000)(['domains'])) as { env: Record<string, string | null> };
     assert.equal(anatomia.env['ANATOMIA_VESTIGIUM'], '0');
     const saved = { count: process.env['GIT_CONFIG_COUNT'], key: process.env['GIT_CONFIG_KEY_0'] };
     process.env['GIT_CONFIG_COUNT'] = '1';
@@ -402,6 +410,79 @@ describe('node CLI runner (real child processes)', () => {
     assert.equal(slow.failure, 'timeout');
     assert.equal(slow.message, 'Test CLI (pr list) が 1 秒でタイムアウト');
   });
+
+  it('runs the Anatomia CLI within the configured timeout (BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS)', async () => {
+    const slow = await createAnatomiaCliRunner(script('slow.mjs'), 1000)(['domains', 'program']).catch((e: unknown) => e);
+    assert.ok(slow instanceof CliRunError);
+    assert.equal(slow.failure, 'timeout');
+    assert.equal(slow.message, 'Anatomia CLI (domains program) が 1 秒でタイムアウト');
+  });
+
+  it('runs a command from PATH with the arguments verbatim, and an absent command is `missing`', async () => {
+    const options = { label: 'node', timeoutMs: 20_000, env: (base: NodeJS.ProcessEnv) => base };
+    const args = [script('echo.mjs'), 'release', 'list', '--repo', 'a b; echo pwned & $(whoami)'];
+    const out = JSON.parse(await createCommandRunner(process.execPath, options)(args)) as { argv: string[] };
+    assert.deepEqual(out.argv, args.slice(1));
+    const absent = await createCommandRunner('breviarium-no-such-command-x', { ...options, label: 'gh' })(['release', 'list']).catch((e: unknown) => e);
+    assert.ok(absent instanceof CliRunError);
+    assert.equal(absent.failure, 'missing');
+  });
+});
+
+describe('github-releases source', () => {
+  /** `gh release list --json tagName,publishedAt,isPrerelease` as gh prints it. */
+  const listed = () => JSON.stringify([{ isPrerelease: false, publishedAt: '2026-09-25T23:06:02Z', tagName: 'v0.1.0' }, { isPrerelease: true, publishedAt: '2026-09-26T01:00:00Z', tagName: 'v0.2.0-rc.1' }]);
+
+  it('is not connected without a bound GitHub repository', async () => {
+    const outcome = await createGithubReleasesSource(fakeCli(() => listed())).fetch(project({ bindings: {} }));
+    assert.match(outcome.kind === 'not-connected' ? outcome.reason : '', /bindings\.githubRepo/);
+  });
+
+  it('asks gh for the non-draft releases of the bound repository as an argument array and keeps tags and dates only', async () => {
+    const calls: string[][] = [];
+    const outcome = await createGithubReleasesSource(fakeCli(() => listed(), calls)).fetch(project());
+    assert.deepEqual(calls, [['release', 'list', '--repo', 'LUDIARS/Breviarium', '--exclude-drafts', '--limit', '100', '--json', 'tagName,publishedAt,isPrerelease']]);
+    assert.equal(outcome.kind, 'ok');
+    if (outcome.kind !== 'ok') return;
+    assert.equal(outcome.subject, 'github:LUDIARS/Breviarium');
+    assert.deepEqual(outcome.data as GithubReleasesEvidence, {
+      repository: 'LUDIARS/Breviarium',
+      releases: [
+        { tag: 'v0.2.0-rc.1', publishedAt: '2026-09-26T01:00:00.000Z', prerelease: true },
+        { tag: 'v0.1.0', publishedAt: '2026-09-25T23:06:02.000Z', prerelease: false },
+      ],
+    });
+  });
+
+  it('gh missing, not logged in, an unknown repository, a timeout and an unreadable output are failures with a reason, never gh diagnostics', async () => {
+    const cases: Array<[string | Error, RegExp]> = [
+      [new CliRunError('gh を起動できない', 'missing'), /^gh \(GitHub CLI\) が見つからない \(PATH を確認\)$/],
+      [new CliRunError('gh (release list) が失敗 (exit 4)', 'exit', 'To get started with GitHub CLI, please run:  gh auth login\n'), /^gh が GitHub にログインしていない \(gh auth login\)$/],
+      [new CliRunError('gh (release list) が失敗 (exit 1)', 'exit', "GraphQL: Could not resolve to a Repository with the name 'LUDIARS/Breviarium'. (repository)"), /^GitHub に LUDIARS\/Breviarium が見つからない/],
+      [new CliRunError('gh (release list) が失敗 (exit 1)', 'exit', 'unexpected at C:/Users/x'), /^gh \(release list\) が失敗 \(exit 1\)$/],
+      [new CliRunError('gh (release list) が 5 秒でタイムアウト', 'timeout'), /5 秒でタイムアウト/],
+      ['not json', /JSON として読めない/],
+      ['{"releases":[]}', /github_shape/],
+    ];
+    for (const [answer, pattern] of cases) {
+      const outcome = await createGithubReleasesSource(fakeCli(() => answer)).fetch(project());
+      assert.equal(outcome.kind, 'failed');
+      const error = outcome.kind === 'failed' ? outcome.error : '';
+      assert.match(error, pattern);
+      assert.doesNotMatch(error, /C:\/Users|GraphQL/);
+    }
+  });
+
+  it('keeps the previous releases when gh disappears', async () => {
+    const answers: (string | Error)[] = [listed(), new CliRunError('gh を起動できない', 'missing')];
+    const attempt = await refreshOnly('github-releases', createGithubReleasesSource(fakeCli((_args, call) => answers[call] as string | Error)));
+    assert.equal((await attempt(T1))?.status, 'ok');
+    const s = await attempt(T2);
+    assert.equal(s?.status, 'failed');
+    assert.match(s?.error ?? '', /見つからない/);
+    assert.equal(s?.dataFetchedAt, T1);
+    assert.equal((s?.data as GithubReleasesEvidence).releases.length, 2);
+  });
 });
 
 describe('excubitor source', () => {
@@ -413,26 +494,67 @@ describe('excubitor source', () => {
     ],
   });
 
-  it('is not connected without EXCUBITOR_URL, and asks GET /api/v1/services for the bound or lower-case code', async () => {
+  /** Breviarium's env-config: two required keys missing, with the Infisical project and key names Breviarium must not keep. */
+  const envConfig = () => ({
+    code: 'breviarium',
+    catalog: { project_id: 'infisical-project-x' },
+    override: null,
+    effective: { project_id: 'infisical-project-x' },
+    required_env: ['LUDIARS_ALLOWED_HOSTS', 'BREVIARIUM_PUBLIC_URL'],
+    status: { ready: false, required: ['LUDIARS_ALLOWED_HOSTS', 'BREVIARIUM_PUBLIC_URL'], missing: ['LUDIARS_ALLOWED_HOSTS', 'BREVIARIUM_PUBLIC_URL'], resolvedKeys: 3, error: null },
+  });
+
+  /** Answers by path: the service list, Breviarium's env-config, and 404 for any other env-config. */
+  const excubitorFetch = (calls: string[] = []): FetchLike => async (url) => {
+    const path = url.replace(/^https?:\/\/[^/]+/, '');
+    calls.push(path);
+    if (path === EXCUBITOR_SERVICES_PATH) return json(200, services());
+    if (path === envConfigPath('breviarium')) return json(200, envConfig());
+    return json(404, { error: 'not_found' });
+  };
+
+  it('is not connected without EXCUBITOR_URL, and asks the service list, then the env-config of a listed service', async () => {
     const off = await createExcubitorSource(undefined).fetch(project());
     assert.match(off.kind === 'not-connected' ? off.reason : '', /EXCUBITOR_URL/);
     const calls: string[] = [];
-    const outcome = await createExcubitorSource(http(scriptedFetch([() => json(200, services())], calls))).fetch(project({ bindings: { excubitorService: 'breviarium' } }));
-    assert.deepEqual(calls, [EXCUBITOR_SERVICES_PATH]);
+    const outcome = await createExcubitorSource(http(excubitorFetch(calls))).fetch(project({ bindings: { excubitorService: 'breviarium' } }));
+    assert.deepEqual(calls, [EXCUBITOR_SERVICES_PATH, '/api/v1/services/breviarium/env-config']);
     assert.equal(outcome.kind === 'ok' && outcome.subject, 'excubitor:breviarium');
     assert.equal(excubitorServiceCode(project({ bindings: {} })), 'br');
+    const unlisted: string[] = [];
+    await createExcubitorSource(http(excubitorFetch(unlisted))).fetch(project({ bindings: {} }));
+    assert.deepEqual(unlisted, [EXCUBITOR_SERVICES_PATH]);
   });
 
-  it('keeps presence, state and autostart only (no host, pid, port, paths or env)', async () => {
-    const source = createExcubitorSource(http(scriptedFetch([() => json(200, services())])));
+  it('keeps presence, state, autostart, the service codes and the env readiness as a count only (no host, pid, port, paths, env keys or values)', async () => {
+    const source = createExcubitorSource(http(excubitorFetch()));
     const stopped = await source.fetch(project({ bindings: { excubitorService: 'breviarium' } }));
-    assert.deepEqual(stopped.kind === 'ok' && stopped.data, { service: 'breviarium', found: true, state: 'stopped', autostart: false } satisfies ExcubitorEvidence);
+    const codes = ['breviarium', 'actio'];
+    assert.deepEqual(stopped.kind === 'ok' && stopped.data, {
+      service: 'breviarium',
+      found: true,
+      state: 'stopped',
+      autostart: false,
+      serviceCodes: codes,
+      envConfig: { ready: false, missingCount: 2 },
+    } satisfies ExcubitorEvidence);
     const stored = JSON.stringify(stopped.kind === 'ok' ? stopped.data : null);
-    for (const leaked of ['host-a', '4370', 'E:/Ars', 'SECRET', 'abc']) assert.equal(stored.includes(leaked), false, leaked);
+    for (const leaked of ['host-a', '4370', 'E:/Ars', 'SECRET', 'abc', 'LUDIARS_ALLOWED_HOSTS', 'infisical-project-x']) assert.equal(stored.includes(leaked), false, leaked);
     const running = await source.fetch(project({ code: 'Actio', bindings: {} }));
-    assert.deepEqual(running.kind === 'ok' && running.data, { service: 'actio', found: true, state: 'running', autostart: true } satisfies ExcubitorEvidence);
+    assert.deepEqual(running.kind === 'ok' && running.data, { service: 'actio', found: true, state: 'running', autostart: true, serviceCodes: codes, envConfig: null } satisfies ExcubitorEvidence);
     const missing = await source.fetch(project({ bindings: {} }));
-    assert.deepEqual(missing.kind === 'ok' && missing.data, { service: 'br', found: false, state: null, autostart: null } satisfies ExcubitorEvidence);
+    assert.deepEqual(missing.kind === 'ok' && missing.data, { service: 'br', found: false, state: null, autostart: null, serviceCodes: codes, envConfig: null } satisfies ExcubitorEvidence);
+  });
+
+  it('does not treat an incomplete or malformed env-config status as ready with no missing keys', async () => {
+    for (const status of [{ ready: true }, { ready: true, missing: 'SECRET_KEY' }, { ready: 'true', missing: [] }]) {
+      const fetch: FetchLike = async (url) => {
+        const path = url.replace(/^https?:\/\/[^/]+/, '');
+        return path === EXCUBITOR_SERVICES_PATH ? json(200, services()) : json(200, { status });
+      };
+      const outcome = await createExcubitorSource(http(fetch)).fetch(project({ bindings: { excubitorService: 'breviarium' } }));
+      assert.equal(outcome.kind === 'ok' && (outcome.data as ExcubitorEvidence).envConfig, null);
+    }
   });
 
   it('an unreachable Excubitor or a foreign answer is a failure, and the previous service state stays', async () => {

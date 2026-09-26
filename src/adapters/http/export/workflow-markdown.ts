@@ -2,6 +2,7 @@
 import { ANALYSIS_TIMING_LABELS } from '../../../workflow/domain/analyze-phase.ts';
 import { LIFECYCLE_LABELS } from '../../../workflow/domain/lifecycle.ts';
 import { PHASE_TITLES, STAGE_STATE_LABELS } from '../../../workflow/domain/phases.ts';
+import { setupCheckMark } from '../../../workflow/domain/setup-check.ts';
 import { mdCell, mdTable } from './markdown-table.ts';
 import type { StageSummary, WorkflowSummary } from './workflow-summary.ts';
 
@@ -21,7 +22,7 @@ function lifecycle(w: WorkflowSummary): string {
 function startup(w: WorkflowSummary): string {
   const checklist = mdTable(
     ['整備の項目', '済/未', '根拠'],
-    w.startup.checklist.map((c) => [c.label, c.done ? '済' : '未', c.reasons.join(' / ')]),
+    w.startup.checklist.map((c) => [c.label, setupCheckMark(c), c.reasons.join(' / ')]),
   );
   return `## ${PHASE_TITLES.startup}\n\n${stageTable(w.startup.stages)}\n\n${checklist}`;
 }
@@ -33,7 +34,8 @@ function loop(w: WorkflowSummary): string {
     ['指標', '値', '根拠'],
     w.loop.metrics.map((m) => [m.title, m.value === null ? null : `${m.value} ${m.unit}`, m.reasons.join(' / ')]),
   );
-  return `## ${PHASE_TITLES.sprint}\n\n${sprint}\n\n${stageTable(w.loop.stages)}\n\n${metrics}\n\n完成の定義: ${mdCell(w.loop.definitionOfDone)}`;
+  const scrum = w.loop.stages.map((s) => `- **${mdCell(s.title)}**: ${mdCell(s.description)} (証跡: ${mdCell(s.evidence)})`).join('\n');
+  return `## ${PHASE_TITLES.sprint}\n\n${sprint}\n\n${stageTable(w.loop.stages)}\n\n${scrum}\n\n${metrics}\n\n完成の定義 (Definition of Done): ${mdCell(w.loop.definitionOfDone)}`;
 }
 
 function analyze(w: WorkflowSummary): string {

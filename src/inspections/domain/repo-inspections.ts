@@ -13,8 +13,8 @@ function fileRef(label: string, fact: { path: string; modifiedAt: string }): Evi
 }
 
 /**
- * Anatomia domain-declarations (graded) from the checkout's declaration files. Coverage and verify
- * come from the CLIs (anatomia-inspections.ts).
+ * Anatomia domain-declarations (graded) from the checkout's declaration files. The membership coverage,
+ * the layer assignment (CLI) and verify (Revisor) are in anatomia-inspections.ts.
  */
 export function inspectDomainDeclarations(e: AnatomiaEvidence | null, commit: string | null): Inspection[] {
   const tool = 'anatomia' as const;

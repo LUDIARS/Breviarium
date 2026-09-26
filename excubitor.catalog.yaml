@@ -11,7 +11,11 @@
 #
 # Anatomia / Revisor の CLI は BREVIARIUM_ANATOMIA_CLI / BREVIARIUM_REVISOR_CLI の絶対パスで渡す
 # (コードに既定のパスは持たない。外すとその 2 ソースは未接続になり、検査は従来どおり「—」)。
+# Anatomia CLI 1 回の上限は BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS (既定 120000、1000〜600000 ms)。
 # Breviarium は読み取りのサブコマンド (domains program / pr list / pr show) だけを execFile の引数配列で呼ぶ。
+# 状態「リリース済み」は PATH の gh (`gh release list`、ログイン済み) で GitHub Release を読み、直前の Release から
+# major / minor を上げた明示的な Release があるときだけにする (初回の自動 Release・patch だけの更新は数えない)。
+# gh が無い・未ログインなら github-releases ソースは失敗 (前回値保持) で、リリース済みにしない。
 #
 # 待受は loopback のみ (BREVIARIUM_HOST)。Internal 公開は同じ機械の Cloudflare Tunnel が
 # https://br${DOMAIN_ROOT} を http://127.0.0.1:4370 へ Host を保持して転送し、Cloudflare Access の
@@ -59,9 +63,17 @@ services:
       # 定期更新: 1 時間ごとに全プロジェクトを 1 つずつ refresh (失敗したソースは前回値を保持)。
       # 止めるときは 0 にする (コードの既定も 0 = 無効)。
       BREVIARIUM_REFRESH_INTERVAL_SEC: "3600"
-      # 所属率 (anatomia/domain-coverage) と verify / マージリスク (Revisor) の取得に使う CLI。
+      # 層の割当率 (anatomia/layer-assignment) と verify / マージリスク (Revisor) の取得に使う CLI。
+      # 所属率 (anatomia/domain-coverage) は CLI を使わず、リポの spec/domains と git の index から出す。
       BREVIARIUM_ANATOMIA_CLI: ${ARS_ROOT}/Anatomia/bin/anatomia.mjs
+      # Anatomia CLI 1 回の上限 (ms、1000〜600000)。大きいプロジェクトで間に合わなければ延ばす。
+      BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS: "120000"
       BREVIARIUM_REVISOR_CLI: ${ARS_ROOT}/Revisor/src/cli.mjs
+      # 外部サービスへのリンク (ハブ化はしない。リンクだけ)。Access 経由の閲覧者にはこの公開 URL、
+      # loopback の利用者には各サービスの provides (PRAEFORMA_URL / ANATOMIA_URL / ACTIO_FRONTEND_URL) を使う。
+      BREVIARIUM_LINK_PRAEFORMA: https://pf${DOMAIN_ROOT}
+      BREVIARIUM_LINK_ANATOMIA: https://anatomia${DOMAIN_ROOT}
+      BREVIARIUM_LINK_ACTIO: https://actio${DOMAIN_ROOT}
     required_env:
       - LUDIARS_ALLOWED_HOSTS
       - BREVIARIUM_HOST

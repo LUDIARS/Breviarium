@@ -2,7 +2,7 @@
 import type { LifecycleKind } from '../../../registry/domain/model.ts';
 import type { AnalysisTiming } from '../../../workflow/domain/analyze-phase.ts';
 import { describeLifecycle, type SprintWeek } from '../../../workflow/domain/lifecycle.ts';
-import { DEFINITION_OF_DONE, type StageResult, type StageState } from '../../../workflow/domain/phases.ts';
+import { DEFINITION_OF_DONE, SPRINT_STAGES, type SprintStageId, type StageResult, type StageState } from '../../../workflow/domain/phases.ts';
 import type { LoopSprint } from '../../../workflow/domain/sprint-loop.ts';
 import type { SprintMetricId } from '../../../workflow/domain/sprint-metrics.ts';
 import type { SetupItemId } from '../../../workflow/domain/setup-checklist.ts';
@@ -14,6 +14,12 @@ export interface StageSummary {
   readonly state: StageState;
   readonly reasons: readonly string[];
   readonly evidenceAt: string | null;
+}
+
+/** A sprint stage with what it is in scrum terms (`description`) and what is read as its evidence. */
+export interface LoopStageSummary extends StageSummary {
+  readonly description: string;
+  readonly evidence: string;
 }
 
 /**
@@ -32,12 +38,13 @@ export interface WorkflowSummary {
   };
   readonly startup: {
     readonly stages: readonly StageSummary[];
-    readonly checklist: readonly { readonly id: SetupItemId; readonly label: string; readonly done: boolean; readonly reasons: readonly string[] }[];
+    /** `applicable: false` = 該当なし (never done, not counted). */
+    readonly checklist: readonly { readonly id: SetupItemId; readonly label: string; readonly applicable: boolean; readonly done: boolean; readonly reasons: readonly string[] }[];
   };
   readonly loop: {
     /** null = スプリント外. */
     readonly sprint: LoopSprint | null;
-    readonly stages: readonly StageSummary[];
+    readonly stages: readonly LoopStageSummary[];
     readonly metrics: readonly { readonly id: SprintMetricId; readonly title: string; readonly value: number | null; readonly unit: string; readonly reasons: readonly string[] }[];
     readonly definitionOfDone: string;
   };
@@ -57,17 +64,22 @@ function stageSummary(s: StageResult): StageSummary {
   return { id: s.id, title: s.title, state: s.state, reasons: [...s.reasons], evidenceAt: s.evidenceAt };
 }
 
+function loopStageSummary(s: StageResult<SprintStageId>): LoopStageSummary {
+  const def = SPRINT_STAGES.find((d) => d.id === s.id);
+  return { ...stageSummary(s), description: def?.summary ?? '', evidence: def?.evidence ?? '' };
+}
+
 export function toWorkflowSummary(w: WorkflowView): WorkflowSummary {
   const l = w.lifecycle;
   return {
     lifecycle: { kind: l.kind, label: describeLifecycle(l), judged: l.judged, overridden: l.overridden, sprint: l.sprint ? { ...l.sprint } : null, reasons: [...l.reasons] },
     startup: {
       stages: w.startup.stages.map(stageSummary),
-      checklist: w.startup.checklist.map((c) => ({ id: c.id, label: c.label, done: c.done, reasons: [...c.reasons] })),
+      checklist: w.startup.checklist.map((c) => ({ id: c.id, label: c.label, applicable: c.applicable, done: c.done, reasons: [...c.reasons] })),
     },
     loop: {
       sprint: w.loop.sprint ? { ...w.loop.sprint } : null,
-      stages: w.loop.stages.map(stageSummary),
+      stages: w.loop.stages.map(loopStageSummary),
       metrics: w.loop.metrics.map((m) => ({ id: m.id, title: m.title, value: m.value, unit: m.unit, reasons: [...m.reasons] })),
       definitionOfDone: DEFINITION_OF_DONE,
     },

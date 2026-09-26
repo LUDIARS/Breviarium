@@ -10,6 +10,7 @@ import type {
   EvidenceBundle,
   ExcubitorEvidence,
   GitEvidence,
+  GithubReleasesEvidence,
   PraeformaAcceptanceEvidence,
   PraeformaEvidence,
   RepoArtifactsEvidence,
@@ -86,6 +87,7 @@ export function bundleFrom(snapshots: readonly SourceSnapshot[]): EvidenceBundle
     concordia: data('concordia') as ConcordiaEvidence | null,
     domainReviews: data('concordia-reviews') as DomainReviewsEvidence | null,
     revisor: data('revisor') as RevisorEvidence | null,
+    githubReleases: data('github-releases') as GithubReleasesEvidence | null,
     actio: data('actio') as ActioEvidence | null,
     excubitor: data('excubitor') as ExcubitorEvidence | null,
   };

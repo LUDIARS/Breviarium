@@ -15,7 +15,7 @@ src/
   adapters/
     config/          loadConfig (catalog env → 既定値はこのファイル)、Web 入口の Host/Origin・公開 URL・Cloudflare Access 設定
     storage/         JSON ファイル (data/projects.json、data/snapshots/<code>/<source>.json)
-    sources/         git / praeforma (+ acceptance) / anatomia (+ CLI) / repo-artifacts / voluptas / elegantia / concordia (+ domain-review posts) / revisor / actio
+    sources/         git / praeforma (+ acceptance) / anatomia (+ CLI) / repo-artifacts / voluptas / elegantia / concordia (+ domain-review posts) / revisor / github-releases / actio / excubitor
     http/            ルータ・API・画面 (一覧 / 詳細、スプリント表示を含む)・エクスポート (summary.md / summary.json)・入口 (Access 検証・アクセスレベル)
     scheduler/       定期更新 (コードの既定は無効、catalog は 1 時間ごと)
   main.ts            composition root
@@ -41,13 +41,15 @@ adapters/storage ──▶ registry/ports, snapshots/ports
 
 | source | 取得方法 | 設定 | 書き込み |
 |---|---|---|---|
-| git | `git -C <repoPath> …` を child_process (`execFile`、引数配列、シェル補間なし) | 登録の repoPath | しない |
+| git | `git -C <repoPath> …` を child_process (`execFile`、引数配列、シェル補間なし)。`remote -v` は origin のホスト名だけに落とす | 登録の repoPath | しない |
 | praeforma | `GET /api/projects`、`/api/projects/:pid/{ux-goal,domains,specs,spec-versions}` | `BREVIARIUM_PRAEFORMA_URL` → `PRAEFORMA_URL`、bindings.praeformaProjectId | しない |
 | praeforma-acceptance | `GET /api/projects/:pid/acceptance/summary` | 同上 | しない |
-| anatomia | repoPath の `spec/domains/*.domain.json` と `spec/data/generated/anatomia/manifest.json` | 登録の repoPath | しない |
-| anatomia-cli | `node <CLI> domains program --project <id> --json` (`execFile`、引数配列、env `ANATOMIA_VESTIGIUM=0`、120 秒) | `BREVIARIUM_ANATOMIA_CLI`、bindings.anatomiaProject (無ければ小文字の code) | しない |
+| anatomia | repoPath の `spec/domains/*.domain.json` と `spec/data/generated/anatomia/manifest.json`、`git -C <repoPath> ls-files -z` (index のファイル一覧。pathPattern との一致を数えて件数だけ残す) | 登録の repoPath | しない |
+| anatomia-cli | `node <CLI> domains program --project <id> --json` (`execFile`、引数配列、env `ANATOMIA_VESTIGIUM=0`、`BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS` 既定 120 秒・上限 600 秒) | `BREVIARIUM_ANATOMIA_CLI`、bindings.anatomiaProject (無ければ小文字の code) | しない |
 | revisor | `node <CLI> pr list --repository <owner/name> --json` → 最新 merged 5 件を `pr show <n> --json` で 1 件ずつ (`execFile`、引数配列、env から `GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n` を外す、1 回 60 秒) | `BREVIARIUM_REVISOR_CLI`、bindings.githubRepo | しない |
-| repo-artifacts | repoPath の README・`spec/feature`・`spec/plan/NN-*.md`・`spec/data/omnipotens-*.json`・`vitia-game-experience-audit.json`・`report/omnipotens-final.html` | 登録の repoPath | しない |
+| github-releases | `gh release list --repo <owner/name> --exclude-drafts --limit 100 --json tagName,publishedAt,isPrerelease` (PATH の gh、`execFile`、引数配列、env `GH_PROMPT_DISABLED=1` / `GH_NO_UPDATE_NOTIFIER=1`、`BREVIARIUM_SOURCE_TIMEOUT_MS`) | bindings.githubRepo (gh のログインは運用側) | しない |
+| repo-artifacts | repoPath の README・`spec/feature`・`spec/plan/NN-*.md`・`spec/data/omnipotens-*.json`・`vitia-game-experience-audit.json`・`report/omnipotens-final.html`・`excubitor.catalog.yaml` (code・depends_on・宣言の有無だけ) | 登録の repoPath | しない |
+| excubitor | `GET /api/v1/services` (対象サービスの有無・state・autostart と全サービスの code) → 載っていれば `GET /api/v1/services/<code>/env-config` (ready と不足件数だけ) | `BREVIARIUM_EXCUBITOR_URL` → `EXCUBITOR_URL`、bindings.excubitorService (無ければ小文字の code) | しない |
 | voluptas | `BREVIARIUM_VOLPUTAS_DATA_DIR` 配下の bindings.voluptasPath の JSON ファイル数と最新 mtime | 同左 | しない |
 | elegantia | `GET /api/overview?product=<product>` | `BREVIARIUM_ELEGANTIA_URL` → `ELEGANTIA_URL`、bindings.elegantiaProduct | しない |
 | actio | `GET /api/projects/cc/<code>/sprints` (スプリント集計、[sprints](../feature/sprints.md)) | `BREVIARIUM_ACTIO_URL` → `ACTIO_URL`、bindings.actioProjectCode (無ければ登録 code) | しない |
@@ -75,3 +77,4 @@ Elegantia の catalog は現時点で `provides: ELEGANTIA_URL` を持たない�
   Host/Origin → Cloudflare Access (JWT 検証) → アクセスレベル (`local` / 閲覧専用の `viewer`) → 本文 → Router。
   JWT 検証は node:crypto だけで行い、実行時依存は増やさない。詳細は [web-entrance](../feature/web-entrance.md)。
 - `GET /health` は生存だけを返す。ソースの到達性は調べず、URL も出さない (各ソースは configured / not_connected のみ)。
+- 画面は Praeforma / Anatomia / Actio へのリンクだけを出す (ハブ化しない)。基点 URL は env (`readServiceLinks`) で、loopback の利用者には topology env、閲覧者には catalog の公開 URL ([web-ui](../feature/web-ui.md))。

@@ -20,6 +20,8 @@ export interface GitEvidence {
   readonly tagCount: number;
   /** Newest tag (by creation date) named `v` plus a digit (`v1.2.0`); null when there is none. */
   readonly latestVersionTag: string | null;
+  /** The `origin` remote, as its host name only (null host = a local path); null when there is no origin. */
+  readonly origin: { readonly host: string | null } | null;
 }
 
 export interface PraeformaEvidence {
@@ -45,6 +47,22 @@ export interface DomainDeclarationFact {
   readonly modifiedAt: string;
 }
 
+/**
+ * How much of the repository's implementation belongs to a declared domain: the tracked implementation
+ * files (git index) and those a declaration's `membership.pathPattern` matches. Counts only — no file
+ * name is kept.
+ */
+export interface MembershipCoverage {
+  /** Parsed domain declarations. */
+  readonly domains: number;
+  /** `membership[].pathPattern` values that compiled as a regular expression / that did not. */
+  readonly pathPatterns: number;
+  readonly invalidPatterns: number;
+  /** Tracked implementation files (spec/feature/grading.md) and those matched by at least one valid pattern. */
+  readonly implementationFiles: number;
+  readonly matchedFiles: number;
+}
+
 export interface AnatomiaEvidence {
   readonly declarations: readonly DomainDeclarationFact[];
   readonly declaredCount: number;
@@ -52,6 +70,8 @@ export interface AnatomiaEvidence {
   readonly membershipTotal: number;
   readonly latestDeclarationAt: string | null;
   readonly manifest: (FileFact & { readonly sourceRevision: string | null }) | null;
+  /** The declarations' pathPatterns against the files in the git index (anatomia/domain-coverage). */
+  readonly membership: MembershipCoverage;
 }
 
 /** Stage-result status recorded in a plan document's front matter (`status:`), lower-cased. */
@@ -90,6 +110,21 @@ export interface DiPaperFact extends FileFact {
   readonly positionCount: number;
 }
 
+/** A related-settings declaration of a catalog service (dependencies, env, topology, hubs). */
+export type CatalogDeclaration = 'depends_on' | 'required_env' | 'provides' | 'uses_corpus' | 'cernere_launch_credentials';
+
+/** One service of the service-owned catalog: its code, the codes it depends on and which declarations it carries. */
+export interface CatalogServiceFact {
+  readonly code: string;
+  readonly dependsOn: readonly string[];
+  readonly declarations: readonly CatalogDeclaration[];
+}
+
+/** The checkout's `excubitor.catalog.yaml`: service codes and declarations only (no env value, command, path or URL). */
+export interface ServiceCatalogFact extends FileFact {
+  readonly services: readonly CatalogServiceFact[];
+}
+
 export interface RepoArtifactsEvidence {
   readonly foundation: {
     readonly readme: FileFact | null;
@@ -105,6 +140,8 @@ export interface RepoArtifactsEvidence {
   };
   readonly vitiaAudit: VitiaAuditFact | null;
   readonly diPaper: DiPaperFact | null;
+  /** `excubitor.catalog.yaml` at the checkout root (setup checks Excubitor 登録 and 関連設定); null when absent. */
+  readonly serviceCatalog: ServiceCatalogFact | null;
 }
 
 export interface VoluptasEvidence {
@@ -241,15 +278,15 @@ export interface PraeformaAcceptanceEvidence {
 }
 
 /**
- * Program-domain classification from `anatomia domains program --json`: counts only. The CLI's
- * file lists, module ids and repository path are not kept.
+ * Program-domain classification from `anatomia domains program --json` (anatomia/layer-assignment):
+ * counts only. The CLI's file lists, module ids and repository path are not kept.
  */
 export interface AnatomiaCoverageEvidence {
   /** Anatomia project id the CLI was asked for. */
   readonly project: string;
   /** Whether the project declares its layers (`.anatomia/layers.json`); null when the output did not say. */
   readonly layersDeclared: boolean | null;
-  /** Modules / symbols in total and those classified into a declared domain layer. */
+  /** Modules / symbols in total and those assigned to a declared layer. */
   readonly modules: { readonly total: number; readonly classified: number };
   readonly symbols: { readonly total: number; readonly classified: number };
   readonly domainCount: number | null;
@@ -293,6 +330,27 @@ export interface ExcubitorEvidence {
   readonly state: string | null;
   /** The catalog's `autostart`; null when not found or not stated. */
   readonly autostart: boolean | null;
+  /** Codes of every service in Excubitor's catalog (depends_on and catalog-code checks). */
+  readonly serviceCodes: readonly string[];
+  /**
+   * `GET /api/v1/services/<service>/env-config` as readiness only: `status.ready` and how many required env
+   * keys are missing (never the keys or values); null when the service is not found or the answer was unusable.
+   */
+  readonly envConfig: { readonly ready: boolean; readonly missingCount: number } | null;
+}
+
+/** One GitHub Release as `gh release list --json tagName,publishedAt,isPrerelease` lists it (drafts excluded). */
+export interface GithubReleaseFact {
+  readonly tag: string;
+  readonly publishedAt: string | null;
+  readonly prerelease: boolean;
+}
+
+/** The bound repository's GitHub Releases, newest first by publishedAt: tags, dates and the pre-release flag only. */
+export interface GithubReleasesEvidence {
+  /** GitHub repository (`owner/name`) the releases belong to. */
+  readonly repository: string;
+  readonly releases: readonly GithubReleaseFact[];
 }
 
 /** Concordia's domain-review posts for one Cc code (`GET /v1/domain-review/posts`): count and newest time only. */
@@ -315,6 +373,8 @@ export interface EvidenceBundle {
   readonly concordia: ConcordiaEvidence | null;
   readonly domainReviews: DomainReviewsEvidence | null;
   readonly revisor: RevisorEvidence | null;
+  /** GitHub Releases: an explicit major / minor release makes the lifecycle `released`. */
+  readonly githubReleases: GithubReleasesEvidence | null;
   /** Sprints: graded (terpsichore), shown, and the frame of the workflow's PDCA loop and lifecycle. */
   readonly actio: ActioEvidence | null;
   /** The project's Excubitor service: whether it is operated (lifecycle `operating`). */
@@ -333,6 +393,7 @@ export const EMPTY_BUNDLE: EvidenceBundle = {
   concordia: null,
   domainReviews: null,
   revisor: null,
+  githubReleases: null,
   actio: null,
   excubitor: null,
 };

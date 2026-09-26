@@ -12,6 +12,8 @@ import type {
   EvidenceBundle,
   ExcubitorEvidence,
   GitEvidence,
+  GithubReleasesEvidence,
+  MembershipCoverage,
   PraeformaAcceptanceEvidence,
   PraeformaEvidence,
   RepoArtifactsEvidence,
@@ -53,7 +55,7 @@ export function project(overrides: Partial<Project> = {}): Project {
 export const SHA = 'a'.repeat(40);
 
 export function git(overrides: Partial<GitEvidence> = {}): GitEvidence {
-  return { headSha: SHA, headCommittedAt: daysAgo(1), branch: 'main', tagCount: 1, latestVersionTag: null, ...overrides };
+  return { headSha: SHA, headCommittedAt: daysAgo(1), branch: 'main', tagCount: 1, latestVersionTag: null, origin: { host: 'github.com' }, ...overrides };
 }
 
 export function praeforma(overrides: Partial<PraeformaEvidence> = {}): PraeformaEvidence {
@@ -80,8 +82,14 @@ export function anatomia(overrides: Partial<AnatomiaEvidence> = {}): AnatomiaEvi
     membershipTotal: 5,
     latestDeclarationAt: daysAgo(3),
     manifest: { path: 'spec/data/generated/anatomia/manifest.json', modifiedAt: daysAgo(2), sourceRevision: 'sha256:x' },
+    membership: membership(),
     ...overrides,
   };
+}
+
+/** The declarations' pathPatterns against the git index: 38 of 40 implementation files in a domain (0.95 → A). */
+export function membership(overrides: Partial<MembershipCoverage> = {}): MembershipCoverage {
+  return { domains: 2, pathPatterns: 5, invalidPatterns: 0, implementationFiles: 40, matchedFiles: 38, ...overrides };
 }
 
 export function repoArtifacts(overrides: Partial<RepoArtifactsEvidence> = {}): RepoArtifactsEvidence {
@@ -109,6 +117,7 @@ export function repoArtifacts(overrides: Partial<RepoArtifactsEvidence> = {}): R
       blockedBy: [],
     },
     diPaper: { path: 'spec/plan/12-di-discussion-paper.md', modifiedAt: daysAgo(4), status: 'complete', updated: '2026-09-22', questionCount: 3, positionCount: 2 },
+    serviceCatalog: { path: 'excubitor.catalog.yaml', modifiedAt: daysAgo(20), services: [{ code: 'br', dependsOn: [], declarations: ['required_env', 'provides'] }] },
     ...overrides,
   };
 }
@@ -185,14 +194,19 @@ export function revisor(overrides: Partial<RevisorEvidence> = {}): RevisorEviden
   };
 }
 
+/** GitHub Releases of LUDIARS/Breviarium: none published yet (not released). */
+export function githubReleases(overrides: Partial<GithubReleasesEvidence> = {}): GithubReleasesEvidence {
+  return { repository: 'LUDIARS/Breviarium', releases: [], ...overrides };
+}
+
 /** Cc domain-review posts: three posts, the newest five days ago (within the 30-day threshold). */
 export function domainReviews(overrides: Partial<DomainReviewsEvidence> = {}): DomainReviewsEvidence {
   return { code: 'Br', postCount: 3, latestPostedAt: daysAgo(5), ...overrides };
 }
 
-/** Excubitor: the service is in the catalog, stopped and not on autostart (not operated). */
+/** Excubitor: the service is in the catalog, stopped and not on autostart (not operated), its env-config ready. */
 export function excubitor(overrides: Partial<ExcubitorEvidence> = {}): ExcubitorEvidence {
-  return { service: 'br', found: true, state: 'stopped', autostart: false, ...overrides };
+  return { service: 'br', found: true, state: 'stopped', autostart: false, serviceCodes: ['br', 'actio'], envConfig: { ready: true, missingCount: 0 }, ...overrides };
 }
 
 /** Actio's contract example (`GET /api/projects/cc/KD/sprints`), as Actio sends it. */
@@ -295,6 +309,7 @@ export function fullBundle(overrides: Partial<EvidenceBundle> = {}): EvidenceBun
     concordia: concordia(),
     domainReviews: domainReviews(),
     revisor: revisor(),
+    githubReleases: githubReleases(),
     actio: actio(),
     excubitor: excubitor(),
     ...overrides,
@@ -328,6 +343,7 @@ const EVIDENCE: Readonly<Record<SourceId, unknown>> = {
   concordia: concordia(),
   'concordia-reviews': domainReviews(),
   revisor: revisor(),
+  'github-releases': githubReleases(),
   actio: actio(),
   excubitor: excubitor(),
 };
@@ -346,6 +362,7 @@ export function okSources(): Record<SourceId, SourceAdapter & { calls: number }>
     concordia: make('concordia'),
     'concordia-reviews': make('concordia-reviews'),
     revisor: make('revisor'),
+    'github-releases': make('github-releases'),
     actio: make('actio'),
     excubitor: make('excubitor'),
   };

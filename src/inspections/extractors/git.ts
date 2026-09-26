@@ -3,11 +3,46 @@ import { fail, ok, type Result } from '../../shared/result.ts';
 import { toIsoTimestamp } from '../../shared/time.ts';
 import type { GitEvidence } from '../domain/evidence.ts';
 
-/** Raw git output: `log -1 --format=%H%n%cI`, `rev-parse --abbrev-ref HEAD`, `tag --list --sort=-creatordate` (newest first). */
+/**
+ * Raw git output: `log -1 --format=%H%n%cI`, `rev-parse --abbrev-ref HEAD`, `tag --list --sort=-creatordate`
+ * (newest first) and `remote -v` (reduced to the origin's host here; the URL itself is never kept).
+ */
 export interface GitRaw {
   readonly head: string;
   readonly branch: string;
   readonly tags: string;
+  readonly remotes: string;
+}
+
+/** A DNS host name. */
+const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/i;
+/** `[user@]host:path`, git's scp-like syntax (a scheme URL has `//` after the colon). */
+const SCP_LIKE = /^(?:[^@/\s]+@)?([^:/\s@]+):(?!\/\/)/;
+
+/**
+ * The host name of a remote URL (`https://…`, `ssh://…`, `git@host:owner/repo`), lower-cased; null for a local
+ * path or anything without a host. Credentials, the path and the URL itself are never returned.
+ */
+export function remoteHost(url: string): string | null {
+  const value = url.trim();
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) {
+    try {
+      const host = new URL(value).hostname;
+      return HOST.test(host) ? host.toLowerCase() : null;
+    } catch {
+      return null;
+    }
+  }
+  if (/^[a-z]:[\\/]/i.test(value)) return null;
+  const host = SCP_LIKE.exec(value)?.[1];
+  return host && HOST.test(host) ? host.toLowerCase() : null;
+}
+
+/** The origin remote's fetch URL reduced to its host; null when `remote -v` lists no origin. */
+function originOf(remotes: string): GitEvidence['origin'] {
+  const line = remotes.split(/\r?\n/).find((l) => /^origin\s+\S+\s+\(fetch\)\s*$/.test(l.trim()));
+  const url = line?.trim().split(/\s+/)[1];
+  return url === undefined ? null : { host: remoteHost(url) };
 }
 
 const SHA = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
@@ -32,5 +67,6 @@ export function extractGitEvidence(raw: GitRaw): Result<GitEvidence> {
     branch: branch === '' || branch === 'HEAD' ? null : branch,
     tagCount: tags.length,
     latestVersionTag,
+    origin: originOf(raw.remotes),
   });
 }

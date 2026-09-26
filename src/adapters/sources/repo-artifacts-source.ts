@@ -8,8 +8,10 @@ import { failed } from './source-outcomes.ts';
 
 const PLAN_DIR = 'spec/plan';
 const DATA_DIR = 'spec/data';
+/** The service-owned Excubitor catalog at the checkout root. */
+const SERVICE_CATALOG = 'excubitor.catalog.yaml';
 
-/** Reads (never writes) the checkout's foundation docs and Omnipotens / Vitia / Discutere artefacts. */
+/** Reads (never writes) the checkout's foundation docs, Omnipotens / Vitia / Discutere artefacts and its Excubitor catalog. */
 export function createRepoArtifactsSource(): SourceAdapter {
   return {
     id: 'repo-artifacts',
@@ -23,13 +25,14 @@ export function createRepoArtifactsSource(): SourceAdapter {
           return n.endsWith('.md') && number !== null && number >= 3 && number <= 26;
         });
         const featureCount = (await repoFileNames(repo, 'spec/feature')).filter((n) => n.endsWith('.md')).length;
-        const [readme, productSpec, summary, runPlan, audit, finalReport, ...plans] = await Promise.all([
+        const [readme, productSpec, summary, runPlan, audit, finalReport, serviceCatalog, ...plans] = await Promise.all([
           readmeName ? repoFile(repo, readmeName, false) : Promise.resolve(null),
           repoFile(repo, 'spec/ux/product.md', false),
           repoFile(repo, `${DATA_DIR}/omnipotens-summary.json`, true),
           repoFile(repo, `${DATA_DIR}/omnipotens-run-plan.json`, true),
           repoFile(repo, `${DATA_DIR}/vitia-game-experience-audit.json`, true),
           repoFile(repo, 'report/omnipotens-final.html', false),
+          repoFile(repo, SERVICE_CATALOG, true),
           ...planNames.map((n) => repoFile(repo, `${PLAN_DIR}/${n}`, true)),
         ]);
         const data = extractRepoArtifactsEvidence({
@@ -41,6 +44,7 @@ export function createRepoArtifactsSource(): SourceAdapter {
           runPlan: runPlan ?? null,
           audit: audit ?? null,
           finalReport: finalReport ?? null,
+          serviceCatalog: serviceCatalog ?? null,
         });
         return { kind: 'ok', data, subject: `repo:${repo}` };
       } catch (error) {

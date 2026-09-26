@@ -41,6 +41,7 @@ main { padding:12px 16px 32px; max-width:1200px; margin:0 auto; }
 .phase-name { font-size:12px; color:var(--muted); min-width:0; }
 .phase-bar { list-style:none; margin:0; padding:0; display:flex; gap:3px; min-width:0; }
 .phase-bar li { flex:1 1 0; text-align:center; font-size:12px; padding:4px 0; border-radius:6px; border:1px solid var(--line); min-width:0; }
+.phase-row-minor .phase-name, .phase-row-minor .phase-bar li { font-size:11px; } .phase-row-minor .phase-bar li { padding:1px 0; }
 .st-not-started { background:var(--s-not-started); } .st-in-progress { background:var(--s-in-progress); } .st-done { background:var(--s-done); }
 .an-current { background:var(--s-done); } .an-late { background:var(--s-stale); } .an-none { background:var(--s-not-started); } .an-no-sprint { background:var(--s-in-progress); }
 .checklist li { margin:2px 0; }
@@ -67,7 +68,10 @@ button, .button-link { font:inherit; min-height:var(--tap); min-width:var(--tap)
 button.secondary, .button-link.secondary { background:var(--card); color:var(--accent); }
 button.danger { background:var(--bad); border-color:var(--bad); color:#fff; }
 .actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.service-links { display:flex; flex-wrap:wrap; gap:0 14px; margin:4px 0; }
+.service-links a { display:inline-flex; align-items:center; min-height:var(--tap); min-width:0; }
 details > summary { min-height:var(--tap); display:flex; align-items:center; cursor:pointer; font-weight:600; }
+.phase-card > summary h2 { margin:0; min-width:0; }
 .empty { padding:12px 0; }
 .sprint-team { border-top:1px solid var(--line); margin-top:10px; padding-top:6px; min-width:0; }
 .bars { display:grid; gap:6px; margin:6px 0; max-width:640px; }

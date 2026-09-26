@@ -6,13 +6,21 @@ import { describe, it } from 'node:test';
 import { createAnatomiaSource } from '../../src/adapters/sources/anatomia-source.ts';
 import { createConcordiaSource } from '../../src/adapters/sources/concordia-source.ts';
 import { createElegantiaSource } from '../../src/adapters/sources/elegantia-source.ts';
-import { createGitSource } from '../../src/adapters/sources/git-source.ts';
+import { createGitSource, type GitRunner, listIndexedFiles } from '../../src/adapters/sources/git-source.ts';
 import type { FetchLike } from '../../src/adapters/sources/http-json.ts';
 import { createPraeformaSource } from '../../src/adapters/sources/praeforma-source.ts';
 import { createRepoArtifactsSource } from '../../src/adapters/sources/repo-artifacts-source.ts';
 import { containedPath, createVoluptasSource } from '../../src/adapters/sources/voluptas-source.ts';
-import type { ConcordiaEvidence, PraeformaEvidence, RepoArtifactsEvidence, VoluptasEvidence } from '../../src/inspections/domain/evidence.ts';
+import type { AnatomiaEvidence, ConcordiaEvidence, PraeformaEvidence, RepoArtifactsEvidence, VoluptasEvidence } from '../../src/inspections/domain/evidence.ts';
 import { project, SHA } from '../support/fixtures.ts';
+
+/** A fake git whose index holds the given files (`ls-files -z`), recording each call. */
+function indexed(files: readonly string[], calls: string[][] = []): GitRunner {
+  return async (repoPath, args) => {
+    calls.push([repoPath, ...args]);
+    return files.map((f) => `${f}\0`).join('');
+  };
+}
 
 function jsonFetch(routes: Record<string, unknown>, calls: string[] = []): FetchLike {
   return async (url) => {
@@ -117,7 +125,7 @@ describe('repository sources', () => {
   it('a missing checkout is a failure, not "no artefacts"', async () => {
     const outcome = await createRepoArtifactsSource().fetch(project({ repoPath: join(tmpdir(), 'breviarium-does-not-exist-x') }));
     assert.equal(outcome.kind, 'failed');
-    assert.equal((await createAnatomiaSource().fetch(project({ repoPath: join(tmpdir(), 'breviarium-does-not-exist-x') }))).kind, 'failed');
+    assert.equal((await createAnatomiaSource(indexed([])).fetch(project({ repoPath: join(tmpdir(), 'breviarium-does-not-exist-x') }))).kind, 'failed');
   });
 
   it('anatomia reads declarations and the generated manifest', async () => {
@@ -125,9 +133,33 @@ describe('repository sources', () => {
       await put(repo, 'spec/domains/a.domain.json', '{"name":"a","membership":[{}]}');
       await put(repo, 'spec/domains/readme.md', 'not a declaration');
       await put(repo, 'spec/data/generated/anatomia/manifest.json', '{}');
-      const outcome = await createAnatomiaSource().fetch(project({ repoPath: repo }));
+      const outcome = await createAnatomiaSource(indexed([])).fetch(project({ repoPath: repo }));
       assert.equal(outcome.kind === 'ok' && (outcome.data as { declaredCount: number }).declaredCount, 1);
     });
+  });
+
+  it('anatomia matches the declarations against the git index (not the working tree) and keeps counts only', async () => {
+    await withDir(async (repo) => {
+      await put(repo, 'spec/domains/a.domain.json', JSON.stringify({ name: 'a', membership: [{ pathPattern: '(^|/)src/a/' }] }));
+      await put(repo, 'src/untracked/only-in-the-working-tree.ts', 'x');
+      const calls: string[][] = [];
+      const outcome = await createAnatomiaSource(indexed(['src/a/one.ts', 'src/b/two.ts', 'tests/a/one.test.ts', 'spec/domains/a.domain.json'], calls)).fetch(project({ repoPath: repo }));
+      assert.deepEqual(calls, [[repo, 'ls-files', '-z']]);
+      assert.equal(outcome.kind, 'ok');
+      const e = outcome.kind === 'ok' ? (outcome.data as AnatomiaEvidence) : null;
+      assert.deepEqual(e?.membership, { domains: 1, pathPatterns: 1, invalidPatterns: 0, implementationFiles: 2, matchedFiles: 1 });
+      assert.doesNotMatch(JSON.stringify(e), /one\.ts|two\.ts|only-in-the-working-tree/);
+      const failing = createAnatomiaSource(async () => {
+        throw new Error('git ls-files に失敗: not a git repository');
+      });
+      const failed = await failing.fetch(project({ repoPath: repo }));
+      assert.equal(failed.kind === 'failed' && failed.error, 'git ls-files に失敗: not a git repository');
+    });
+  });
+
+  it('lists the index NUL-separated, so a path with spaces or non-ASCII characters is kept as it is', async () => {
+    const files = await listIndexedFiles(async () => 'src/a b.ts\0src/日本語.ts\0\0', 'E:/Work/Br');
+    assert.deepEqual(files, ['src/a b.ts', 'src/日本語.ts']);
   });
 
   it('git passes the repository path as an argument, never through a shell', async () => {

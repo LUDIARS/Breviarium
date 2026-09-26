@@ -12,6 +12,7 @@ import { renderNotFoundPage, renderProjectPage } from './html/project-page.ts';
 import { formValue, readForm } from './request-parsing.ts';
 import { htmlResponse, jsonResponse, markdownResponse, redirect } from './responses.ts';
 import type { Router } from './router.ts';
+import { linkBasesFor, serviceLinks } from './service-links.ts';
 
 function projectPath(code: string, query = ''): string {
   return `/projects/${encodeURIComponent(code)}${query}`;
@@ -34,7 +35,9 @@ function afterPost(result: Result<unknown>, onOk: string, onError: string): Retu
  */
 export function registerPageRoutes(router: Router, deps: AppDeps): Router {
   return router
-    .add('GET', '/', async (req) => htmlResponse(200, renderIndexPage(await loadPortfolio(deps.overview), noticeFromQuery(req.query), req.accessLevel)))
+    .add('GET', '/', async (req) =>
+      htmlResponse(200, renderIndexPage(await loadPortfolio(deps.overview), noticeFromQuery(req.query), req.accessLevel, linkBasesFor(deps.links, req.accessLevel))),
+    )
     .add('POST', '/projects', async (req) => {
       const form = readForm(req);
       const result = await registerProject(deps.registry, {
@@ -50,7 +53,7 @@ export function registerPageRoutes(router: Router, deps: AppDeps): Router {
       const code = params['code'] ?? '';
       const overview = await loadProjectOverview(deps.overview, code);
       if (!overview.ok) return htmlResponse(404, renderNotFoundPage(code, req.accessLevel));
-      return htmlResponse(200, renderProjectPage(overview.value, noticeFromQuery(req.query), req.accessLevel));
+      return htmlResponse(200, renderProjectPage(overview.value, noticeFromQuery(req.query), req.accessLevel, linkBasesFor(deps.links, req.accessLevel)));
     })
     .add('POST', '/projects/:code', async (req, params) => {
       const code = params['code'] ?? '';
@@ -77,7 +80,9 @@ export function registerPageRoutes(router: Router, deps: AppDeps): Router {
     .add('GET', '/projects/:code/summary.md', async (req, params) => {
       const overview = await loadProjectOverview(deps.overview, params['code'] ?? '');
       if (!overview.ok) return htmlResponse(404, renderNotFoundPage(params['code'] ?? '', req.accessLevel));
-      return markdownResponse(200, renderSummaryMarkdown(toExecutiveSummary(overview.value)), `${overview.value.project.code}-summary.md`);
+      // The shareable summary links to the public URLs only: loopback addresses mean nothing to whoever it is shared with.
+      const links = serviceLinks(overview.value.project, linkBasesFor(deps.links, 'viewer'));
+      return markdownResponse(200, renderSummaryMarkdown(toExecutiveSummary(overview.value), links), `${overview.value.project.code}-summary.md`);
     })
     .add('GET', '/projects/:code/summary.json', async (_req, params) => {
       const overview = await loadProjectOverview(deps.overview, params['code'] ?? '');

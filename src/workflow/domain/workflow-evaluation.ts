@@ -14,6 +14,11 @@ export interface WorkflowView {
   readonly analyze: AnalyzePhase;
 }
 
+/** A project in the sprint lifecycle leads with its PDCA loop (project page and list row); otherwise startup comes first. */
+export function leadsWithSprint(w: WorkflowView): boolean {
+  return w.lifecycle.kind === 'sprint';
+}
+
 /** Evidence snapshots → workflow. Pure: the same evidence, override and time always give the same view. */
 export function evaluateWorkflow(bundle: EvidenceBundle, override: LifecycleKind | null, now: string): WorkflowView {
   return {

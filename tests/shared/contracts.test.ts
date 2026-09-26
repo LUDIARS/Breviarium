@@ -19,21 +19,27 @@ import extractActioEvidenceContract from '../../contracts/extract-actio-evidence
 import extractAnatomiaCoverageEvidenceContract from '../../contracts/extract-anatomia-coverage-evidence.contract.ts';
 import extractDomainReviewsEvidenceContract from '../../contracts/extract-domain-reviews-evidence.contract.ts';
 import extractExcubitorEvidenceContract from '../../contracts/extract-excubitor-evidence.contract.ts';
+import extractGithubReleasesEvidenceContract from '../../contracts/extract-github-releases-evidence.contract.ts';
+import extractServiceCatalogContract from '../../contracts/extract-service-catalog.contract.ts';
 import gradeRatioContract from '../../contracts/grade-ratio.contract.ts';
 import gradeSprintHealthContract from '../../contracts/grade-sprint-health.contract.ts';
 import inspectDomainCoverageContract from '../../contracts/inspect-domain-coverage.contract.ts';
 import inspectElegantiaContract from '../../contracts/inspect-elegantia.contract.ts';
+import inspectLayerAssignmentContract from '../../contracts/inspect-layer-assignment.contract.ts';
 import inspectMergeRiskContract from '../../contracts/inspect-merge-risk.contract.ts';
 import inspectPraeformaAcceptanceContract from '../../contracts/inspect-praeforma-acceptance.contract.ts';
 import inspectTerpsichoreContract from '../../contracts/inspect-terpsichore.contract.ts';
 import inspectVerifyContract from '../../contracts/inspect-verify.contract.ts';
+import latestExplicitReleaseContract from '../../contracts/latest-explicit-release.contract.ts';
 import latestMergedPrNumbersContract from '../../contracts/latest-merged-pr-numbers.contract.ts';
 import loadConfigContract from '../../contracts/load-config.contract.ts';
+import membershipCoverageContract from '../../contracts/membership-coverage.contract.ts';
 import planRegistrationContract from '../../contracts/plan-registration.contract.ts';
 import pullRequestsForContract from '../../contracts/pull-requests-for.contract.ts';
 import readCloudflareAccessConfigContract from '../../contracts/read-cloudflare-access-config.contract.ts';
 import readPublicOriginContract from '../../contracts/read-public-origin.contract.ts';
 import refreshProjectContract from '../../contracts/refresh-project.contract.ts';
+import remoteHostContract from '../../contracts/remote-host.contract.ts';
 import renderIndexPageContract from '../../contracts/render-index-page.contract.ts';
 import renderProjectPageContract from '../../contracts/render-project-page.contract.ts';
 import resolveLifecycleContract from '../../contracts/resolve-lifecycle.contract.ts';
@@ -57,16 +63,19 @@ import { esc } from '../../src/adapters/http/html/escape.ts';
 import { renderIndexPage } from '../../src/adapters/http/html/index-page.ts';
 import { renderProjectPage } from '../../src/adapters/http/html/project-page.ts';
 import type { HttpResponse } from '../../src/adapters/http/http-types.ts';
-import { inspectDomainCoverage, inspectVerify } from '../../src/inspections/domain/anatomia-inspections.ts';
+import { inspectDomainCoverage, inspectLayerAssignment, inspectVerify } from '../../src/inspections/domain/anatomia-inspections.ts';
 import { buildInspections } from '../../src/inspections/domain/build-inspections.ts';
 import {
   type AnatomiaCoverageEvidence,
+  type AnatomiaEvidence,
   EMPTY_BUNDLE,
+  type GithubReleaseFact,
   type MergedPrReviewFact,
   type PraeformaAcceptanceEvidence,
   type RevisorEvidence,
 } from '../../src/inspections/domain/evidence.ts';
 import { gradeRatio } from '../../src/inspections/domain/grading.ts';
+import { membershipCoverage } from '../../src/inspections/domain/membership-coverage.ts';
 import { inspectPraeformaAcceptance } from '../../src/inspections/domain/praeforma-inspections.ts';
 import { inspectMergeRisk } from '../../src/inspections/domain/revisor-inspections.ts';
 import { inspectElegantia } from '../../src/inspections/domain/service-inspections.ts';
@@ -78,6 +87,9 @@ import { extractAnatomiaCoverageEvidence } from '../../src/inspections/extractor
 import { pullRequestsFor } from '../../src/inspections/extractors/concordia.ts';
 import { extractDomainReviewsEvidence } from '../../src/inspections/extractors/concordia-reviews.ts';
 import { extractExcubitorEvidence } from '../../src/inspections/extractors/excubitor.ts';
+import { remoteHost } from '../../src/inspections/extractors/git.ts';
+import { extractGithubReleasesEvidence } from '../../src/inspections/extractors/github-releases.ts';
+import { extractServiceCatalog } from '../../src/inspections/extractors/service-catalog.ts';
 import { latestMergedPrNumbers } from '../../src/inspections/extractors/revisor.ts';
 import { registerProject } from '../../src/registry/application/registry-use-cases.ts';
 import { validateBindings } from '../../src/registry/domain/field-rules.ts';
@@ -88,14 +100,37 @@ import { assessFreshness } from '../../src/snapshots/domain/freshness.ts';
 import type { SourceSnapshot } from '../../src/snapshots/domain/model.ts';
 import { applyOutcome } from '../../src/snapshots/domain/snapshot-rules.ts';
 import { evaluateAnalyze } from '../../src/workflow/domain/analyze-phase.ts';
+import { latestExplicitRelease } from '../../src/workflow/domain/explicit-release.ts';
 import { resolveLifecycle } from '../../src/workflow/domain/lifecycle.ts';
 import { evaluateSprintLoop } from '../../src/workflow/domain/sprint-loop.ts';
 import { evaluateStartup } from '../../src/workflow/domain/startup-phase.ts';
 import { ACCESS_CONFIG, AUD, claims, NOW_MS, NOW_SEC, TEAM } from '../support/access-tokens.ts';
-import { actio, actioResponse, actioTeam, activeSprint, elegantia, excubitor, fullBundle, git, NOW, project, revisor, sprintTasks, testDeps } from '../support/fixtures.ts';
+import {
+  actio,
+  actioResponse,
+  actioTeam,
+  activeSprint,
+  anatomia,
+  elegantia,
+  excubitor,
+  fullBundle,
+  git,
+  githubReleases,
+  membership,
+  NOW,
+  project,
+  repoArtifacts,
+  revisor,
+  sprintTasks,
+  testDeps,
+} from '../support/fixtures.ts';
 
 function coverageOf(classified: number, total: number): AnatomiaCoverageEvidence {
   return { project: 'x', layersDeclared: true, modules: { total: 2, classified: 1 }, symbols: { total, classified }, domainCount: 1 };
+}
+
+function membershipOf(matchedFiles: number, implementationFiles: number): AnatomiaEvidence {
+  return anatomia({ membership: membership({ matchedFiles, implementationFiles }) });
 }
 
 type Gate = MergedPrReviewFact['anatomiaGate'];
@@ -224,6 +259,10 @@ describe('contract predicates hold for the rules', () => {
     const config = loadConfig(env);
     assert.equal(loadConfigContract.post(config, env), true);
     assert.equal(typeof loadConfigContract.post({ ...config, refreshIntervalSec: 60 }, env), 'string');
+    assert.equal(typeof loadConfigContract.post({ ...config, anatomiaCliTimeoutMs: 60_000 }, env), 'string');
+    const slowAnatomia = { ...env, BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS: '600000' };
+    assert.equal(loadConfigContract.post(loadConfig(slowAnatomia), slowAnatomia), true);
+    assert.equal(typeof loadConfigContract.post({ ...loadConfig(slowAnatomia), anatomiaCliTimeoutMs: 600_001 }, slowAnatomia), 'string');
     assert.equal(describeHealthContract.post(describeHealth(config, NOW), config), true);
     const exposing = { ...describeHealth(config, NOW), startedAt: 'http://127.0.0.1:11111' };
     assert.equal(typeof describeHealthContract.post(exposing, config), 'string');
@@ -358,12 +397,66 @@ describe('contract predicates hold for the rules', () => {
     assert.equal(typeof extractAnatomiaCoverageEvidenceContract.post(extracted, 'x', { modules: 'x' }), 'string');
   });
 
-  it('C-29 domain coverage class', () => {
-    for (const e of [null, coverageOf(0, 0), coverageOf(90, 100), coverageOf(89, 100), coverageOf(50, 100), coverageOf(10, 100)]) {
-      assert.equal(inspectDomainCoverageContract.post(inspectDomainCoverage(e), e), true, JSON.stringify(e?.symbols));
+  it('C-29 domain coverage class from the membership share', () => {
+    const cases = [
+      null,
+      membershipOf(0, 0),
+      membershipOf(90, 100),
+      membershipOf(89, 100),
+      membershipOf(50, 100),
+      membershipOf(10, 100),
+      anatomia({ membership: membership({ domains: 0, pathPatterns: 0, matchedFiles: 0 }) }),
+      anatomia({ membership: membership({ pathPatterns: 0, invalidPatterns: 3, matchedFiles: 0 }) }),
+    ];
+    for (const e of cases) assert.equal(inspectDomainCoverageContract.post(inspectDomainCoverage(e, null), e), true, JSON.stringify(e?.membership));
+    assert.equal(typeof inspectDomainCoverageContract.post(inspectDomainCoverage(membershipOf(90, 100), null), membershipOf(89, 100)), 'string');
+    assert.equal(typeof inspectDomainCoverageContract.post(inspectDomainCoverage(membershipOf(90, 100), null), null), 'string');
+  });
+
+  it('C-44 membership coverage counts implementation files only', () => {
+    const files = ['src/a/x.ts', 'src/b/y.py', 'tests/a/x.test.ts', 'docs/z.ts', 'README.md', 'src\\a\\x.ts'];
+    const domains = [{ pathPatterns: ['(^|/)src/a/', '([broken'] }, { pathPatterns: [] }];
+    for (const [f, d] of [[files, domains], [files, []], [[], domains], [['src/a/x.ts'], [{ pathPatterns: ['*'] }]]] as const) {
+      assert.equal(membershipCoverageContract.post(membershipCoverage(f, d), f, d), true, JSON.stringify(d));
     }
-    assert.equal(typeof inspectDomainCoverageContract.post(inspectDomainCoverage(coverageOf(90, 100)), coverageOf(89, 100)), 'string');
-    assert.equal(typeof inspectDomainCoverageContract.post(inspectDomainCoverage(coverageOf(90, 100)), null), 'string');
+    const counted = membershipCoverage(files, domains);
+    assert.equal(typeof membershipCoverageContract.post({ ...counted, implementationFiles: 4 }, files, domains), 'string');
+    assert.equal(typeof membershipCoverageContract.post({ ...counted, matchedFiles: 2 }, files, domains), 'string');
+    assert.equal(typeof membershipCoverageContract.post({ ...counted, invalidPatterns: 0, pathPatterns: 2 }, files, domains), 'string');
+  });
+
+  it('C-45 layer assignment class, and 層定義なし without layers.json', () => {
+    for (const e of [null, coverageOf(0, 0), coverageOf(90, 100), coverageOf(89, 100), coverageOf(10, 100), { ...coverageOf(0, 684), layersDeclared: false }, { ...coverageOf(90, 100), layersDeclared: null }]) {
+      assert.equal(inspectLayerAssignmentContract.post(inspectLayerAssignment(e), e), true, JSON.stringify(e));
+    }
+    assert.equal(typeof inspectLayerAssignmentContract.post(inspectLayerAssignment(coverageOf(90, 100)), { ...coverageOf(90, 100), layersDeclared: false }), 'string');
+    assert.equal(typeof inspectLayerAssignmentContract.post(inspectLayerAssignment(coverageOf(90, 100)), coverageOf(69, 100)), 'string');
+    assert.equal(typeof inspectLayerAssignmentContract.post(inspectLayerAssignment(coverageOf(90, 100)), null), 'string');
+  });
+
+  it('C-46 highest major / minor update only, never the initial release', () => {
+    const rel = (tag: string, publishedAt: string | null = null, prerelease = false): GithubReleaseFact => ({ tag, publishedAt, prerelease });
+    const mixed = [rel('v1.3.0', '2026-09-25T00:00:00Z', true), rel('v1.2.1', '2026-09-24T00:00:00Z'), rel('v1.2.0', '2026-09-20T00:00:00Z'), rel('v1.1.0', '2026-09-01T00:00:00Z'), rel('v0.1.0', '2026-08-01T00:00:00Z')];
+    for (const r of [mixed, [], [rel('v0.1.0')], [rel('v0.1.1'), rel('v0.1.0')], [rel('v2.0.0-rc', null, true), rel('v1.0.0')], [rel('nightly'), rel('v0.1.0')], [rel('0.2.0'), rel('0.1.0')]]) {
+      assert.equal(latestExplicitReleaseContract.post(latestExplicitRelease(r), r), true, JSON.stringify(r));
+    }
+    assert.equal(typeof latestExplicitReleaseContract.post(mixed[3] ?? null, mixed), 'string');
+    assert.equal(typeof latestExplicitReleaseContract.post(mixed[1] ?? null, mixed), 'string');
+    assert.equal(typeof latestExplicitReleaseContract.post(null, mixed), 'string');
+    assert.equal(typeof latestExplicitReleaseContract.post(rel('v0.1.0'), [rel('v0.1.0')]), 'string');
+  });
+
+  it('C-47 GitHub releases keep tags and dates only', () => {
+    const body = [{ tagName: 'v0.1.0', publishedAt: '2026-09-25T23:06:02Z', isPrerelease: false, body: 'notes', url: 'https://x' }, { tagName: 'v0.2.0-rc', isPrerelease: true }];
+    for (const b of [body, [], {}, null, { releases: [] }]) {
+      assert.equal(extractGithubReleasesEvidenceContract.post(extractGithubReleasesEvidence('LUDIARS/Breviarium', b), 'LUDIARS/Breviarium', b), true, JSON.stringify(b));
+    }
+    const extracted = extractGithubReleasesEvidence('LUDIARS/Breviarium', body);
+    assert.ok(extracted.ok);
+    const leaking = { ok: true as const, value: { ...extracted.value, releases: [{ tag: 'v0.1.0', publishedAt: null, prerelease: false, body: 'notes' }] } };
+    assert.equal(typeof extractGithubReleasesEvidenceContract.post(leaking, 'LUDIARS/Breviarium', body), 'string');
+    assert.equal(typeof extractGithubReleasesEvidenceContract.post(extracted, 'LUDIARS/Other', body), 'string');
+    assert.equal(typeof extractGithubReleasesEvidenceContract.post(extracted, 'LUDIARS/Breviarium', {}), 'string');
   });
 
   it('C-30 verify class from the newest merge', () => {
@@ -439,26 +532,37 @@ describe('contract predicates hold for the rules', () => {
   });
 
   it('C-38 lifecycle priority and override', () => {
-    const released = fullBundle({ revisor: revisor({ localVersion: '1.0.0' }) });
+    const releasesOf = (...tags: string[]) => githubReleases({ releases: tags.map((tag) => ({ tag, publishedAt: NOW, prerelease: tag.includes('-') })) });
+    const released = fullBundle({ githubReleases: releasesOf('v1.1.0', 'v1.0.0') });
     const operated = fullBundle({ excubitor: excubitor({ autostart: true }) });
-    const tagged = fullBundle({ revisor: null, git: git({ latestVersionTag: 'v0.2.0' }) });
-    for (const b of [EMPTY_BUNDLE, fullBundle(), released, operated, tagged, fullBundle({ excubitor: null })]) {
+    const versionFileAndTag = fullBundle({ revisor: revisor({ localVersion: '1.0.0' }), git: git({ latestVersionTag: 'v0.2.0' }) });
+    const initialOnly = fullBundle({ githubReleases: releasesOf('v0.1.0') });
+    const patchOnly = fullBundle({ githubReleases: releasesOf('v1.0.1', 'v1.0.0') });
+    const preRelease = fullBundle({ githubReleases: releasesOf('v2.0.0-rc.1', 'v1.0.0') });
+    for (const b of [EMPTY_BUNDLE, fullBundle(), released, operated, versionFileAndTag, initialOnly, patchOnly, preRelease, fullBundle({ excubitor: null, githubReleases: null })]) {
       for (const override of [null, 'startup', 'operating'] as const) {
-        assert.equal(resolveLifecycleContract.post(resolveLifecycle(b, override, NOW), b, override), true, `${override} ${JSON.stringify(b.excubitor)}`);
+        assert.equal(resolveLifecycleContract.post(resolveLifecycle(b, override, NOW), b, override), true, `${override} ${JSON.stringify(b.excubitor)} ${JSON.stringify(b.githubReleases)}`);
       }
     }
     assert.equal(typeof resolveLifecycleContract.post(resolveLifecycle(fullBundle(), null, NOW), operated, null), 'string');
     assert.equal(typeof resolveLifecycleContract.post(resolveLifecycle(released, null, NOW), EMPTY_BUNDLE, null), 'string');
+    assert.equal(typeof resolveLifecycleContract.post(resolveLifecycle(released, null, NOW), versionFileAndTag, null), 'string');
+    assert.equal(typeof resolveLifecycleContract.post(resolveLifecycle(patchOnly, null, NOW), released, null), 'string');
+    assert.equal(typeof resolveLifecycleContract.post(resolveLifecycle(released, null, NOW), initialOnly, null), 'string');
     assert.equal(typeof resolveLifecycleContract.post(resolveLifecycle(EMPTY_BUNDLE, null, NOW), EMPTY_BUNDLE, 'sprint'), 'string');
   });
 
-  it('C-39 startup checklist aggregation', () => {
+  it('C-39 startup checklist aggregation, with 該当なし left out', () => {
     const partial = fullBundle({ revisor: revisor({ registered: false }) });
-    for (const b of [EMPTY_BUNDLE, fullBundle(), partial]) assert.equal(evaluateStartupContract.post(evaluateStartup(b), b), true);
+    const undeclared = fullBundle({ repoArtifacts: repoArtifacts({ serviceCatalog: { path: 'excubitor.catalog.yaml', modifiedAt: NOW, services: [{ code: 'br', dependsOn: [], declarations: [] }] } }) });
+    for (const b of [EMPTY_BUNDLE, fullBundle(), partial, undeclared]) assert.equal(evaluateStartupContract.post(evaluateStartup(b), b), true);
     const full = evaluateStartup(fullBundle());
     const wrongSetup = { ...full, stages: [full.stages[0], { ...full.stages[1], state: 'in-progress' as const }] as typeof full.stages };
     assert.equal(typeof evaluateStartupContract.post(wrongSetup, fullBundle()), 'string');
     assert.equal(typeof evaluateStartupContract.post(full, EMPTY_BUNDLE), 'string');
+    const na = evaluateStartup(undeclared);
+    const countedNa = { ...na, checklist: na.checklist.map((c) => (c.applicable ? c : { ...c, done: true })) };
+    assert.equal(typeof evaluateStartupContract.post(countedNa, undeclared), 'string');
   });
 
   it('C-40 loop inside the sprint only', () => {
@@ -479,14 +583,31 @@ describe('contract predicates hold for the rules', () => {
     assert.equal(typeof evaluateAnalyzeContract.post(evaluateAnalyze(fullBundle(), NOW), outside, NOW), 'string');
   });
 
-  it('C-42 Excubitor evidence keeps presence, state and autostart only', () => {
+  it('C-42 Excubitor evidence keeps presence, state, autostart, codes and the env readiness count only', () => {
     const body = { services: [{ code: 'br', state: 'running', pid: 42, host: { hostname: 'h' }, port: 4370, catalog_snapshot: { autostart: true, cwd: 'E:/x', env: { A: 'b' } } }] };
+    const envConfig = { effective: { project_id: 'p' }, status: { ready: false, missing: ['A', 'B'] } };
     for (const [service, b] of [['br', body], ['nope', body], ['br', { services: [] }], ['br', {}], ['br', null]] as const) {
-      assert.equal(extractExcubitorEvidenceContract.post(extractExcubitorEvidence(service, b), service, b), true, `${service} ${JSON.stringify(b)}`);
+      assert.equal(extractExcubitorEvidenceContract.post(extractExcubitorEvidence(service, b, envConfig), service, b), true, `${service} ${JSON.stringify(b)}`);
     }
     const leaking = { ok: true as const, value: { ...excubitor(), port: 4370 } };
     assert.equal(typeof extractExcubitorEvidenceContract.post(leaking, 'br', body), 'string');
     assert.equal(typeof extractExcubitorEvidenceContract.post({ ok: true, value: excubitor() }, 'br', {}), 'string');
+    const envKeys = { ok: true as const, value: { ...excubitor(), envConfig: { ready: false, missingCount: 2, missing: ['A', 'B'] } } };
+    assert.equal(typeof extractExcubitorEvidenceContract.post(envKeys, 'br', body), 'string');
+  });
+
+  it('C-48 service catalog keeps codes and declarations only', () => {
+    const text = 'services:\n  - code: api\n    command: node x.mjs\n    depends_on: [cernere]\n    env:\n      TOKEN: secret\n';
+    for (const t of [text, '', 'services:\n  - code: ok\n']) assert.equal(extractServiceCatalogContract.post(extractServiceCatalog(t)), true, t);
+    assert.equal(typeof extractServiceCatalogContract.post([{ code: 'api', dependsOn: [], declarations: [], command: 'node x.mjs' } as never]), 'string');
+    assert.equal(typeof extractServiceCatalogContract.post([{ code: 'api', dependsOn: ['cernere'], declarations: [] }]), 'string');
+    assert.equal(typeof extractServiceCatalogContract.post([{ code: 'http://x', dependsOn: [], declarations: [] }]), 'string');
+  });
+
+  it('C-49 remote host only', () => {
+    for (const url of ['https://token@github.com/a/b.git', 'git@github.com:a/b.git', 'E:/repos/x', 'file:///x']) assert.equal(remoteHostContract.post(remoteHost(url), url), true, url);
+    assert.equal(typeof remoteHostContract.post('token@github.com', 'https://token@github.com/a/b.git'), 'string');
+    assert.equal(typeof remoteHostContract.post('github.com/a/b.git', 'https://github.com/a/b.git'), 'string');
   });
 
   it('C-43 lifecycle override binding', () => {

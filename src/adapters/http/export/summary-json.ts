@@ -49,8 +49,8 @@ export interface SprintSummary {
  */
 export interface ExecutiveSummary {
   readonly format: 'breviarium-summary';
-  /** 2: the workflow (lifecycle + startup / loop / analyze) replaced the fixed stages. */
-  readonly version: 2;
+  /** 3: setup applicability and the scrum stage descriptions/evidence were added to workflow. */
+  readonly version: 3;
   readonly generatedAt: string;
   readonly notice: string | null;
   readonly project: { readonly code: string; readonly name: string; readonly classification: Classification };
@@ -122,7 +122,7 @@ export const INTERNAL_NOTICE = 'Internal — LUDIARS 外へ共有しない';
 export function toExecutiveSummary(o: ProjectOverview): ExecutiveSummary {
   return {
     format: 'breviarium-summary',
-    version: 2,
+    version: 3,
     generatedAt: o.generatedAt,
     notice: o.project.classification === 'internal' ? INTERNAL_NOTICE : null,
     project: { code: o.project.code, name: o.project.name, classification: o.project.classification },

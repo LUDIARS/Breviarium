@@ -2,6 +2,7 @@
 import { isAbsolute } from 'node:path';
 import { type CloudflareAccessConfig, CloudflareAccessConfigError, readCloudflareAccessConfig } from './cloudflare-access-config.ts';
 import { PublicOriginError } from './public-origin.ts';
+import { readServiceLinks, type ServiceLinkConfig, ServiceLinkError } from './service-links-config.ts';
 import { SourceUrlError, resolveSourceUrl } from './source-urls.ts';
 import { buildWebAccess, type WebAccess, WebAccessError } from './web-access.ts';
 
@@ -26,6 +27,8 @@ export interface BreviariumConfig {
   readonly voluptasDataDir?: string;
   /** Anatomia CLI script (`bin/anatomia.mjs`); absent = the anatomia-cli source is not connected. */
   readonly anatomiaCliPath?: string;
+  /** Upper bound of one Anatomia CLI run (`domains program` on a large project takes a while): 1000..600000 ms. */
+  readonly anatomiaCliTimeoutMs: number;
   /** Revisor CLI script (`src/cli.mjs`); absent = the revisor source is not connected. */
   readonly revisorCliPath?: string;
   /** 0 = periodic refresh disabled (default). */
@@ -35,10 +38,13 @@ export interface BreviariumConfig {
   readonly access: WebAccess;
   /** Access application the public entrance verifies against; absent = public requests get 503. */
   readonly cloudflareAccess?: CloudflareAccessConfig;
+  /** Links to Praeforma / Anatomia / Actio: topology URLs for loopback users, public URLs for Access viewers. */
+  readonly serviceLinks: ServiceLinkConfig;
 }
 
 export const CONFIG_DEFAULTS = {
   sourceTimeoutMs: 5000,
+  anatomiaCliTimeoutMs: 120_000,
   refreshIntervalSec: 0,
   snapshotMaxAgeHours: 24,
 } as const;
@@ -102,7 +108,8 @@ function asConfigError<T>(read: () => T): T {
       error instanceof SourceUrlError ||
       error instanceof WebAccessError ||
       error instanceof PublicOriginError ||
-      error instanceof CloudflareAccessConfigError
+      error instanceof CloudflareAccessConfigError ||
+      error instanceof ServiceLinkError
     ) {
       throw new ConfigError(error.message);
     }
@@ -133,10 +140,12 @@ export function loadConfig(env: Env): BreviariumConfig {
     ...(excubitorUrl ? { excubitorUrl } : {}),
     ...(voluptasDataDir ? { voluptasDataDir } : {}),
     ...(anatomiaCliPath ? { anatomiaCliPath } : {}),
+    anatomiaCliTimeoutMs: integer(env, 'BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS', 1000, 600_000, CONFIG_DEFAULTS.anatomiaCliTimeoutMs),
     ...(revisorCliPath ? { revisorCliPath } : {}),
     refreshIntervalSec: refreshInterval(env),
     snapshotMaxAgeHours: integer(env, 'BREVIARIUM_SNAPSHOT_MAX_AGE_HOURS', 1, 24 * 365, CONFIG_DEFAULTS.snapshotMaxAgeHours),
     access: asConfigError(() => buildWebAccess(port, env['LUDIARS_ALLOWED_HOSTS'], env['BREVIARIUM_VIEWER_ORIGINS'], env['BREVIARIUM_PUBLIC_URL'])),
     ...(cloudflareAccess ? { cloudflareAccess } : {}),
+    serviceLinks: asConfigError(() => readServiceLinks(env)),
   };
 }
