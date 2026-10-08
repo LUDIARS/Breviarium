@@ -124,7 +124,11 @@ export function loadConfig(env: Env): BreviariumConfig {
   const concordiaUrl = asConfigError(() => resolveSourceUrl(env, 'CONCORDIA'));
   const actioUrl = asConfigError(() => resolveSourceUrl(env, 'ACTIO'));
   const excubitorUrl = asConfigError(() => resolveSourceUrl(env, 'EXCUBITOR'));
-  const voluptasDataDir = optionalAbsolutePath(env, 'BREVIARIUM_VOLPUTAS_DATA_DIR');
+  // The former spelling remains a compatibility alias for existing deployments.
+  const voluptasDataKey = env['BREVIARIUM_VOLUPTAS_DATA_DIR']?.trim()
+    ? 'BREVIARIUM_VOLUPTAS_DATA_DIR'
+    : 'BREVIARIUM_VOLPUTAS_DATA_DIR';
+  const voluptasDataDir = optionalAbsolutePath(env, voluptasDataKey);
   const anatomiaCliPath = optionalAbsolutePath(env, 'BREVIARIUM_ANATOMIA_CLI');
   const revisorCliPath = optionalAbsolutePath(env, 'BREVIARIUM_REVISOR_CLI');
   const cloudflareAccess = asConfigError(() => readCloudflareAccessConfig(env));

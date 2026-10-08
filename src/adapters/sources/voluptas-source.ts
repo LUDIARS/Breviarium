@@ -56,7 +56,7 @@ export function createVoluptasSource(dataDir: string | undefined): SourceAdapter
   return {
     id: 'voluptas',
     async fetch(project: Project): Promise<SourceOutcome> {
-      if (!dataDir) return notConnected('BREVIARIUM_VOLPUTAS_DATA_DIR が未設定');
+      if (!dataDir) return notConnected('BREVIARIUM_VOLUPTAS_DATA_DIR が未設定');
       const rel = project.bindings.voluptasPath;
       if (!rel) return notConnected('bindings.voluptasPath が未登録');
       const dir = containedPath(dataDir, rel);

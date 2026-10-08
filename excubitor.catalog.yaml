@@ -59,7 +59,7 @@ services:
       BREVIARIUM_DATA_DIR: ${ARS_ROOT}/Breviarium/data
       BREVIARIUM_SOURCE_TIMEOUT_MS: "5000"
       # Voluptas のローカルデータ。プロジェクト登録の bindings.voluptasPath はこの配下の相対パス。
-      BREVIARIUM_VOLPUTAS_DATA_DIR: ${ARS_ROOT}/VolputasData
+      BREVIARIUM_VOLUPTAS_DATA_DIR: ${ARS_ROOT}/VolputasData
       # 定期更新: 1 時間ごとに全プロジェクトを 1 つずつ refresh (失敗したソースは前回値を保持)。
       # 止めるときは 0 にする (コードの既定も 0 = 無効)。
       BREVIARIUM_REFRESH_INTERVAL_SEC: "3600"

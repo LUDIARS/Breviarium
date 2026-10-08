@@ -8,7 +8,7 @@ import type { EvidenceRef, Inspection } from './model.ts';
 export function inspectVoluptas(e: VoluptasEvidence | null): Inspection[] {
   const tool = 'voluptas' as const;
   if (!e) return [notMeasured({ tool, kind: 'survey', reason: 'Voluptas のスナップショットがない (データディレクトリ未設定・bindings.voluptasPath 未登録・未取得)' })];
-  const evidence = [{ label: 'Voluptas データ', location: 'BREVIARIUM_VOLPUTAS_DATA_DIR / bindings.voluptasPath', at: e.latestModifiedAt }];
+  const evidence = [{ label: 'Voluptas データ', location: 'BREVIARIUM_VOLUPTAS_DATA_DIR / bindings.voluptasPath', at: e.latestModifiedAt }];
   if (!e.exists) return [measured({ tool, kind: 'survey', score: 0, scoreLabel: '登録先ディレクトリがない', evidence })];
   return [
     measured({
