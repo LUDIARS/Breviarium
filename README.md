@@ -41,7 +41,7 @@ npm test                    # node --test "tests/**/*.test.ts"
 | `BREVIARIUM_CONCORDIA_URL` / `CONCORDIA_URL` | | 未接続 | Concordia |
 | `BREVIARIUM_ACTIO_URL` / `ACTIO_URL` | | 未接続 | Actio (スプリント集計 `/api/projects/cc/<code>/sprints`)。明示値が優先、無ければ Actio の catalog が provides する topology env |
 | `BREVIARIUM_EXCUBITOR_URL` / `EXCUBITOR_URL` | | 未接続 | Excubitor (`GET /api/v1/services`、状態「運用中」の判定)。明示値が優先、無ければ topology env。Excubitor の catalog は現状 provides を持たないので、使うときは明示値を渡す。未接続なら運用中を判定しない |
-| `BREVIARIUM_VOLPUTAS_DATA_DIR` | | 未接続 | Voluptas のローカルデータ (絶対パス)。登録の `voluptasPath` はこの配下の相対パス |
+| `BREVIARIUM_VOLUPTAS_DATA_DIR` | | 未接続 | Voluptas のローカルデータ (絶対パス)。登録の `voluptasPath` はこの配下の相対パス。旧名 `BREVIARIUM_VOLPUTAS_DATA_DIR` も読む (新名が優先) |
 | `BREVIARIUM_REFRESH_INTERVAL_SEC` | | 0 (無効)、catalog は `3600` | 定期更新の間隔 (60〜86400)。1 プロジェクトずつ直列に全ソースを更新し、失敗したソースは前回値を保持。手動 refresh と重なったプロジェクトは 409 で片方を飛ばす。旧名 `BR_REFRESH_INTERVAL_SEC` も読む (新名が優先) |
 | `BREVIARIUM_ANATOMIA_CLI` | | 未接続、catalog は `${ARS_ROOT}/Anatomia/bin/anatomia.mjs` | Anatomia CLI (絶対パス)。層の割当率 `anatomia/layer-assignment` に使う (所属率 `anatomia/domain-coverage` は CLI を使わずリポの宣言と git の index から出す) |
 | `BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS` | | 120000、catalog も `120000` | Anatomia CLI 1 回の上限 (1000〜600000 ms。範囲外・整数でない値は起動エラー)。大きいプロジェクトで `domains program` が間に合わないときに延ばす。超えた回は理由付きの失敗で前回値を保持 |
@@ -72,7 +72,7 @@ URL・CLI パス未設定、binding 未登録のソースは「未接続」に�
 | anatomia | checkout の `spec/domains/*.domain.json` と生成 manifest、`git ls-files -z` (index の一覧。実装ファイルと pathPattern に一致した数だけ残し、ファイル名は残さない) | 登録の repoPath |
 | anatomia-cli | `anatomia domains program --project <id> --json` の件数だけ (宣言した層に割り当てられた symbol / module の数、layers.json の有無) | `BREVIARIUM_ANATOMIA_CLI`、`BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS`、bindings.anatomiaProject (無ければ小文字の code) |
 | repo-artifacts | checkout の README・spec・Omnipotens / Vitia / Discutere 成果物、リポ直下の `excubitor.catalog.yaml` (サービスの code・depends_on・関連設定の宣言の有無だけ) | 登録の repoPath |
-| voluptas | Voluptas データの JSON 件数と最新日時 | `BREVIARIUM_VOLPUTAS_DATA_DIR`、bindings.voluptasPath |
+| voluptas | Voluptas データの JSON 件数と最新日時 | `BREVIARIUM_VOLUPTAS_DATA_DIR`、bindings.voluptasPath |
 | elegantia | `/api/overview?product=…` | `ELEGANTIA_URL`、bindings.elegantiaProduct |
 | concordia | `/v1/project-codes`、`/v1/prs` | `CONCORDIA_URL`、bindings.githubRepo |
 | concordia-reviews | `/v1/domain-review/posts?code=<略称>&limit=20` (投稿数と最新 `posted_at` だけ) | `CONCORDIA_URL` |
