@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import acceptsClaimsContract from '../../contracts/accepts-claims.contract.ts';
 import actioSprintsPathContract from '../../contracts/actio-sprints-path.contract.ts';
@@ -517,11 +519,11 @@ describe('contract predicates hold for the rules', () => {
   });
 
   it('C-13 / C-14 with the CLIs and the hourly refresh configured', () => {
-    const env = { BREVIARIUM_DATA_DIR: 'E:/data', BREVIARIUM_HOST: '127.0.0.1', BREVIARIUM_PORT: '4370', BREVIARIUM_ANATOMIA_CLI: 'E:/Tools/anatomia.mjs', BREVIARIUM_REVISOR_CLI: 'E:/Tools/revisor.mjs', BREVIARIUM_REFRESH_INTERVAL_SEC: '3600' };
+    const env = { BREVIARIUM_DATA_DIR: join(tmpdir(), 'data'), BREVIARIUM_HOST: '127.0.0.1', BREVIARIUM_PORT: '4370', BREVIARIUM_ANATOMIA_CLI: join(tmpdir(), 'Tools', 'anatomia.mjs'), BREVIARIUM_REVISOR_CLI: join(tmpdir(), 'Tools', 'revisor.mjs'), BREVIARIUM_REFRESH_INTERVAL_SEC: '3600' };
     const config = loadConfig(env);
     assert.equal(loadConfigContract.post(config, env), true);
     assert.equal(describeHealthContract.post(describeHealth(config, NOW), config), true);
-    assert.equal(typeof describeHealthContract.post({ ...describeHealth(config, NOW), startedAt: 'E:/Tools/revisor.mjs' }, config), 'string');
+    assert.equal(typeof describeHealthContract.post({ ...describeHealth(config, NOW), startedAt: env.BREVIARIUM_REVISOR_CLI }, config), 'string');
     const report = describeHealth(config, NOW);
     assert.equal(typeof describeHealthContract.post({ ...report, sources: { ...report.sources, anatomiaCli: 'not_connected' } }, config), 'string');
   });

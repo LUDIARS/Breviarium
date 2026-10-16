@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { loadConfig } from '../../src/adapters/config/load-config.ts';
 import { createApp } from '../../src/adapters/http/create-app.ts';
@@ -273,7 +275,7 @@ describe('health', () => {
 
   it('reports the Anatomia and Revisor CLIs as configured without their paths', async () => {
     const { deps } = testDeps();
-    const env = { BREVIARIUM_DATA_DIR: 'data', BREVIARIUM_HOST: '127.0.0.1', BREVIARIUM_PORT: '4370', BREVIARIUM_ANATOMIA_CLI: 'E:/Tools/Anatomia/bin/anatomia.mjs' };
+    const env = { BREVIARIUM_DATA_DIR: 'data', BREVIARIUM_HOST: '127.0.0.1', BREVIARIUM_PORT: '4370', BREVIARIUM_ANATOMIA_CLI: join(tmpdir(), 'Tools', 'Anatomia', 'bin', 'anatomia.mjs') };
     const res = await registerHealthRoute(createApp(deps), describeHealth(loadConfig(env), NOW)).handle(req('GET', '/health'));
     const sources = (JSON.parse(res.body) as { sources: Record<string, string> }).sources;
     assert.equal(sources['anatomiaCli'], 'configured');
