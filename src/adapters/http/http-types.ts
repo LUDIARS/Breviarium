@@ -21,6 +21,8 @@ export interface HttpResponse {
   readonly status: number;
   readonly headers: Readonly<Record<string, string>>;
   readonly body: string;
+  /** A local file streamed instead of `body` (the playtest video), honouring a single `Range`. */
+  readonly file?: { readonly path: string; readonly contentType: string };
 }
 
 export type RouteParams = Readonly<Record<string, string>>;

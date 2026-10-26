@@ -24,6 +24,8 @@ export interface ProjectBindings {
   readonly anatomiaProject?: string;
   /** Excubitor service code, when it differs from the lower-case registered code. */
   readonly excubitorService?: string;
+  /** Game id of the Ingenium play notes (`<Ingenium data dir>/<game>/`) shown on the AI playtest triage page. */
+  readonly ingeniumGame?: string;
   /** Manual lifecycle; absent means it is judged from the evidence. */
   readonly lifecycleOverride?: LifecycleKind;
 }
@@ -36,6 +38,7 @@ export const BINDING_KEYS = [
   'actioProjectCode',
   'anatomiaProject',
   'excubitorService',
+  'ingeniumGame',
   'lifecycleOverride',
 ] as const;
 

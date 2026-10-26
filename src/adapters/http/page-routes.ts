@@ -1,4 +1,5 @@
 // @implements SPEC-br-web-ui
+import { loadPlaytestCounts } from '../../playtests/application/playtest-use-cases.ts';
 import { registerProject, removeProject, updateProject } from '../../registry/application/registry-use-cases.ts';
 import { BINDING_KEYS } from '../../registry/domain/model.ts';
 import type { Result } from '../../shared/result.ts';
@@ -53,7 +54,8 @@ export function registerPageRoutes(router: Router, deps: AppDeps): Router {
       const code = params['code'] ?? '';
       const overview = await loadProjectOverview(deps.overview, code);
       if (!overview.ok) return htmlResponse(404, renderNotFoundPage(code, req.accessLevel));
-      return htmlResponse(200, renderProjectPage(overview.value, noticeFromQuery(req.query), req.accessLevel, linkBasesFor(deps.links, req.accessLevel)));
+      const playtest = deps.playtests ? await loadPlaytestCounts(deps.playtests, overview.value.project.code) : undefined;
+      return htmlResponse(200, renderProjectPage(overview.value, noticeFromQuery(req.query), req.accessLevel, linkBasesFor(deps.links, req.accessLevel), playtest));
     })
     .add('POST', '/projects/:code', async (req, params) => {
       const code = params['code'] ?? '';

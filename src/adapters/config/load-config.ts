@@ -25,6 +25,8 @@ export interface BreviariumConfig {
   /** Excubitor's API (`GET /api/v1/services`); absent = the excubitor source is not connected. */
   readonly excubitorUrl?: string;
   readonly voluptasDataDir?: string;
+  /** Ingenium's play notes (`data/playtests`, absolute); absent = the playtest triage cannot import. */
+  readonly ingeniumDataDir?: string;
   /** Anatomia CLI script (`bin/anatomia.mjs`); absent = the anatomia-cli source is not connected. */
   readonly anatomiaCliPath?: string;
   /** Upper bound of one Anatomia CLI run (`domains program` on a large project takes a while): 1000..600000 ms. */
@@ -129,6 +131,7 @@ export function loadConfig(env: Env): BreviariumConfig {
     ? 'BREVIARIUM_VOLUPTAS_DATA_DIR'
     : 'BREVIARIUM_VOLPUTAS_DATA_DIR';
   const voluptasDataDir = optionalAbsolutePath(env, voluptasDataKey);
+  const ingeniumDataDir = optionalAbsolutePath(env, 'BREVIARIUM_INGENIUM_DATA_DIR');
   const anatomiaCliPath = optionalAbsolutePath(env, 'BREVIARIUM_ANATOMIA_CLI');
   const revisorCliPath = optionalAbsolutePath(env, 'BREVIARIUM_REVISOR_CLI');
   const cloudflareAccess = asConfigError(() => readCloudflareAccessConfig(env));
@@ -143,6 +146,7 @@ export function loadConfig(env: Env): BreviariumConfig {
     ...(actioUrl ? { actioUrl } : {}),
     ...(excubitorUrl ? { excubitorUrl } : {}),
     ...(voluptasDataDir ? { voluptasDataDir } : {}),
+    ...(ingeniumDataDir ? { ingeniumDataDir } : {}),
     ...(anatomiaCliPath ? { anatomiaCliPath } : {}),
     anatomiaCliTimeoutMs: integer(env, 'BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS', 1000, 600_000, CONFIG_DEFAULTS.anatomiaCliTimeoutMs),
     ...(revisorCliPath ? { revisorCliPath } : {}),

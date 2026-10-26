@@ -34,6 +34,7 @@ export function projectFields(idPrefix: string, project?: Project): string {
     field(`${idPrefix}-ac`, 'actioProjectCode', 'Actio の Cc 略称 (任意、未入力なら code でスプリントを読む)', b.actioProjectCode ?? '', 'maxlength="16" pattern="[A-Za-z][A-Za-z0-9]{0,15}" autocomplete="off"'),
     field(`${idPrefix}-an`, 'anatomiaProject', 'Anatomia の project id (任意、未入力なら小文字の code)', b.anatomiaProject ?? '', 'maxlength="64" autocomplete="off"'),
     field(`${idPrefix}-ex`, 'excubitorService', 'Excubitor のサービス code (任意、未入力なら小文字の code)', b.excubitorService ?? '', 'maxlength="64" autocomplete="off"'),
+    field(`${idPrefix}-ig`, 'ingeniumGame', 'Ingenium のゲーム id (任意、AI プレイテスト精査の対象)', b.ingeniumGame ?? '', 'maxlength="64" autocomplete="off"'),
     lifecycleSelect(`${idPrefix}-lc`, b.lifecycleOverride),
   ].join('');
 }

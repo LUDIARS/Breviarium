@@ -11,6 +11,7 @@ src/
   registry/          プロジェクト登録 (domain: 登録規則 = 純関数 / application: use case / ports)
   workflow/          状態 (lifecycle) と 3 フェーズ (スタートアップ / PDCA ループ / アナライズ) の判定 (純関数)
   inspections/       検査の正規化・クラス判定 (純関数) と、ソースごとの extractor (純関数)
+  playtests/         AI プレイテスト精査 (play note の取り込み・判定・一致率・Actio 書き戻しの規則と use case、BR-UX-6)
   snapshots/         スナップショット・鮮度 (純関数) と refresh use case、スナップショットだけを読む overview
   adapters/
     config/          loadConfig (catalog env → 既定値はこのファイル)、Web 入口の Host/Origin・公開 URL・Cloudflare Access 設定
@@ -60,6 +61,12 @@ URL・CLI パスが未設定、binding が未登録のソースは `not-connecte
 CLI は Breviarium を動かしている Node で、CLI 自身のディレクトリを cwd にして起動する (登録 checkout では動かさない)。
 Elegantia の catalog は現時点で `provides: ELEGANTIA_URL` を持たないため、Excubitor 経由では未接続になる
 (Elegantia 側で provides を追加するか、Breviarium の catalog env に明示するまで)。
+
+## AI プレイテスト精査
+
+ソースのスナップショットとは別に持つ (中身を閲覧者・書き出しへ出さないため)。取り込み元は `BREVIARIUM_INGENIUM_DATA_DIR` の play note (読むだけ)、
+保存は `data/playtests/<code>/runs.json` と `feedback.jsonl`、書き戻し先は Ingenium 由来の Actio タスクだけ。経路はすべて loopback 限定。
+詳細は [playtest-triage](../feature/playtest-triage.md)。
 
 ## 永続化
 

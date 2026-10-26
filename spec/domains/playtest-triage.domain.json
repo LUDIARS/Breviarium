@@ -1,0 +1,25 @@
+{
+  "name": "playtest-triage",
+  "description": "AI プレイテスト精査 (business): Ingenium の play note の取り込み (runs.json)、run の表示形、人間の判定 (feedback.jsonl、Ingenium の --feedback と共有する ai-playtest-feedback/1) の検証と最新判定、LLM 判定との一致率、Ingenium が登録した Actio タスクへの判定の書き戻し規則を所有する。精査ページ・動画配信・ファイル保存・Actio クライアントは adapters (platform-foundation) に置く。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    {
+      "pathPattern": "(^|/)src/playtests/(?:.*/)?[^/]+$"
+    },
+    {
+      "pathPattern": "(^|/)tests/playtests/(?:.*/)?[^/]+$"
+    },
+    {
+      "pathPattern": "^spec/feature/playtest-triage\\.md$"
+    },
+    {
+      "pathPattern": "^spec/domains/playtest-triage\\.domain\\.json$"
+    }
+  ],
+  "cardTemplate": "Summarise the \"playtest-triage\" domain: importing Ingenium play notes, the run view, a person's judgement of reviews and bug candidates (feedback.jsonl shared with Ingenium), agreement with the LLM falsifier, the write-back to Ingenium's Actio tasks, and the loopback-only triage pages and video.",
+  "specRefs": [
+    "spec/ux/product.md",
+    "spec/feature/playtest-triage.md"
+  ]
+}

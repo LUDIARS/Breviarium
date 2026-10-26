@@ -3,6 +3,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { WebAccess } from '../config/web-access.ts';
 import type { AccessTokenVerifier } from './cloudflare-access-verifier.ts';
+import { sendFile } from './file-response.ts';
 import type { HttpRequest, HttpResponse } from './http-types.ts';
 import { admitRequest } from './request-admission.ts';
 import type { Router } from './router.ts';
@@ -59,7 +60,9 @@ export function createNodeServer(router: Router, access: WebAccess, verifier: Ac
           body: method === 'GET' || method === 'HEAD' ? '' : await readBody(req),
           accessLevel: admission.level,
         };
-        send(res, await router.handle(request));
+        const response = await router.handle(request);
+        if (response.file) await sendFile(res, method, response.file, headers['range']);
+        else send(res, response);
       } catch (error) {
         if (error instanceof BodyTooLargeError) {
           res.writeHead(413, { 'content-type': 'application/json; charset=utf-8' });

@@ -60,6 +60,7 @@ const BINDING_PATTERNS: Readonly<Record<BindingKey, (value: string) => boolean>>
   actioProjectCode: (v) => PROJECT_CODE_PATTERN.test(v),
   anatomiaProject: (v) => /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(v),
   excubitorService: (v) => /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(v),
+  ingeniumGame: (v) => /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(v),
   lifecycleOverride: (v) => (LIFECYCLE_KINDS as readonly string[]).includes(v),
 };
 

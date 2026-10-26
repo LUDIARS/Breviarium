@@ -6,10 +6,14 @@ import { createAccessTokenVerifier } from './adapters/http/cloudflare-access-ver
 import { createApp } from './adapters/http/create-app.ts';
 import { describeHealth, registerHealthRoute } from './adapters/http/health.ts';
 import { createNodeServer } from './adapters/http/node-server.ts';
+import { createActioTaskClient } from './adapters/playtests/actio-task-client.ts';
+import { createPlayNoteDirReader } from './adapters/playtests/play-note-dir-reader.ts';
+import { PlaytestFileStore } from './adapters/playtests/playtest-file-store.ts';
 import { startRefreshScheduler } from './adapters/scheduler/refresh-scheduler.ts';
 import { createSources } from './adapters/sources/create-sources.ts';
 import { ProjectFileStore } from './adapters/storage/project-file-store.ts';
 import { SnapshotFileStore } from './adapters/storage/snapshot-file-store.ts';
+import { importPlaytests, type PlaytestDeps } from './playtests/application/playtest-use-cases.ts';
 import { systemClock } from './shared/runtime.ts';
 import { HOUR_MS } from './shared/time.ts';
 import { createRefresher } from './snapshots/application/refresh-use-case.ts';
@@ -26,9 +30,27 @@ async function main(): Promise<void> {
   const config = loadConfig(process.env);
   const projects = await ProjectFileStore.open(config.dataDir);
   const snapshots = new SnapshotFileStore(config.dataDir);
-  const refresh = createRefresher({ projects, snapshots, sources: createSources(config, fetch), clock: systemClock });
+  const playtestStore = new PlaytestFileStore(config.dataDir);
+  const playtests: PlaytestDeps = {
+    projects,
+    notes: createPlayNoteDirReader(config.ingeniumDataDir),
+    store: playtestStore,
+    ...(config.actioUrl ? { actio: createActioTaskClient(config.actioUrl, fetch, config.sourceTimeoutMs) } : {}),
+    clock: systemClock,
+  };
+  const refreshSources = createRefresher({ projects, snapshots, sources: createSources(config, fetch), clock: systemClock });
+  // A full refresh (the button and the periodic one) also imports the bound game's play notes; an unbound
+  // project or an unset data directory only skips the import.
+  const refresh: AppDeps['refresh'] = async (code, requested) => {
+    const report = await refreshSources(code, requested);
+    if (report.ok && requested === undefined) {
+      await importPlaytests(playtests, code).catch((error: unknown) => log(`playtest import ${code}: ${error instanceof Error ? error.message : String(error)}`));
+    }
+    return report;
+  };
+  const cleanup = { purgeProject: async (code: string) => { await snapshots.purgeProject(code); await playtestStore.purgeProject(code); } };
   const deps: AppDeps = {
-    registry: { projects, cleanup: snapshots, clock: systemClock },
+    registry: { projects, cleanup, clock: systemClock },
     overview: {
       projects,
       snapshots,
@@ -37,6 +59,7 @@ async function main(): Promise<void> {
     },
     refresh,
     links: config.serviceLinks,
+    playtests,
   };
   const router = registerHealthRoute(createApp(deps), describeHealth(config, systemClock.now()));
   const verifier = config.cloudflareAccess ? createAccessTokenVerifier(config.cloudflareAccess, createJwksFetcher(config.cloudflareAccess, fetch)) : undefined;

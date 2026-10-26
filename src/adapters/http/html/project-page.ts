@@ -1,4 +1,5 @@
 // @implements SPEC-br-web-ui
+import type { PlaytestCounts } from '../../../playtests/domain/model.ts';
 import type { ProjectOverview } from '../../../snapshots/application/project-overview.ts';
 import type { ServiceLinkBases } from '../../config/service-links-config.ts';
 import type { AccessLevel } from '../http-types.ts';
@@ -7,6 +8,7 @@ import { esc } from './escape.ts';
 import { shortSha, timeTag } from './format.ts';
 import { inspectionTable, toolChips } from './inspection-views.ts';
 import { banners, page, type PageNotice } from './layout.ts';
+import { playtestSection } from './playtest-views.ts';
 import { projectFields } from './project-form.ts';
 import { serviceLinkList } from './service-link-views.ts';
 import { sourceTable } from './source-views.ts';
@@ -49,12 +51,13 @@ function editSection(o: ProjectOverview): string {
  * folded once complete), inspections with evidence,
  * snapshot freshness, refresh and edit. A Cloudflare Access viewer gets the same facts without any refresh, edit or delete form.
  */
-export function renderProjectPage(o: ProjectOverview, notice: PageNotice, level: AccessLevel, links: ServiceLinkBases = {}): string {
+export function renderProjectPage(o: ProjectOverview, notice: PageNotice, level: AccessLevel, links: ServiceLinkBases = {}, playtest?: PlaytestCounts): string {
   const local = level === 'local';
   const body = `${banners(notice)}${header(o, links)}
 ${workflowSections(o.workflow)}
 <section class="card"><h2>検査とクラス</h2><p class="small muted">— は未計測 (0 点や推測で埋めない)。クラス基準は spec/feature/grading.md。</p>${inspectionTable(o.inspections)}</section>
 ${sprintSection(o.sprints)}
+${playtestSection(o.project.code, playtest, local)}
 ${refreshSection(o, local)}${local ? editSection(o) : ''}`;
   return page(`${o.project.name} (${o.project.code}) — Breviarium`, body, level);
 }

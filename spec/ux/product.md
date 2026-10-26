@@ -20,6 +20,7 @@ LUDIARS の各プロジェクトが「どの状態 (スタートアップ / ス�
 | BR-UX-2 | 各プロジェクトが「どの検査を受け、どのクラス評価か」を根拠 (証跡の場所・計測日時・対象 commit) 付きで分かる | inspections |
 | BR-UX-3 | 表示は常にツール側キャッシュから出る。各ソースの取得日時と鮮度が見え、更新は明示操作 (または定期) で行う | snapshots |
 | BR-UX-4 | 公開 (Internal) 前提: 秘匿語・個人データ・秘密を持たない。data/ は Git 管理外、要約は Markdown/JSON で書き出せる。Internal 公開は Cloudflare Access 検証済みの閲覧専用 (書き込みは loopback だけ) | platform-foundation, snapshots |
+| BR-UX-6 | Ingenium の AI プレイテストの run (感想・不具合候補・動画) をこの PC の一画面で精査し、人間の判定を Actio と次の周回へ返す。中身は loopback だけで、閲覧者には件数と一致率だけを出す ([playtest-triage](../feature/playtest-triage.md)) | playtest-triage, platform-foundation |
 | BR-UX-5 | 各プロジェクトの現在スプリントの健全さ (消化 vs 経過) が一枚で分かる。スプリントの正本は Actio で、Breviarium は集計だけをキャッシュから出す (MUSA Terpsichore の席「チームを回す」) | inspections, snapshots, platform-foundation |
 
 ## 不変条件
@@ -40,6 +41,10 @@ LUDIARS の各プロジェクトが「どの状態 (スタートアップ / ス�
 - **推測しない (BR-UX-1)**: 状態とループは証跡があるときだけ進める。Excubitor 未取得では「運用中」にせず、明示的な Release
   (GitHub Release で直前の版から major / minor を上げたもの。初回の自動 Release は数えない) が無ければ「リリース済み」にせず、Actio の集計に無い指標
   (デイリーの動き・バックログ整理度) は「—」と理由を出す。アナライズは助言で、状態・段を変えない。
+- **AI プレイテスト精査 (BR-UX-6) の例外**: run の感想・不具合候補・動画はゲームそのものの内容なので、Git 管理外の `data/playtests/` にだけ置き、
+  loopback の画面だけに出す (閲覧者は 403。プロジェクト詳細には件数と一致率だけ)。書き出しには入れない。判定の入力は loopback だけ。
+  「読むだけ」の例外として、人間の判定を Ingenium が登録した Actio タスク (`source = ingenium.playtest.v1`) にだけ書き戻す (本文に追記、誤検知は `cancelled`)。
+  Ingenium の play note は読むだけ。詳細は [playtest-triage](../feature/playtest-triage.md)。
 - **Internal 公開 (BR-UX-4)**: `https://br${DOMAIN_ROOT}` (Cloudflare Tunnel → loopback) は Cloudflare Access の JWT を
   検証できた要求だけを通し、閲覧専用 (GET / HEAD) にする。画面にも登録・更新・編集・削除を出さない。JWT なしで開くモードは作らず、
   Host 許可を Origin 許可へ広げない。詳細は [web-entrance](../feature/web-entrance.md)。

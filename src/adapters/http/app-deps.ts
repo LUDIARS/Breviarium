@@ -1,4 +1,5 @@
 // @implements SPEC-br-web-ui
+import type { PlaytestDeps } from '../../playtests/application/playtest-use-cases.ts';
 import type { RegistryDeps } from '../../registry/application/registry-use-cases.ts';
 import type { Result } from '../../shared/result.ts';
 import type { OverviewDeps } from '../../snapshots/application/project-overview.ts';
@@ -17,4 +18,6 @@ export interface AppDeps {
   readonly refresh: RefreshFn;
   /** Where the pages link out to Praeforma / Anatomia / Actio; absent = no links. */
   readonly links?: ServiceLinkConfig;
+  /** The AI playtest triage (local only); absent = no playtest pages or section. */
+  readonly playtests?: PlaytestDeps;
 }

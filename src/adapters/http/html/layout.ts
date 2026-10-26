@@ -29,6 +29,14 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   unknown_source: '未知のソースです。',
   invalid_sources: '更新するソースが空です。',
   confirm_mismatch: '確認欄にプロジェクトの code を入力してください。',
+  playtest_not_bound: 'bindings.ingeniumGame が未登録です。登録を編集してゲーム id を入れてください。',
+  playtest_not_connected: 'BREVIARIUM_INGENIUM_DATA_DIR が未設定のため取り込めません。',
+  run_not_found: 'その run は取り込まれていません。',
+  candidate_not_found: 'その不具合候補はこの run にありません。',
+  review_not_found: 'この run には感想がありません。',
+  invalid_feedback_target: '判定の対象が不正です。',
+  invalid_feedback_label: '判定を選んでください。',
+  invalid_feedback_note: 'メモは 1000 文字以内です。',
 };
 
 const NOTICES: Readonly<Record<string, string>> = {
@@ -36,6 +44,8 @@ const NOTICES: Readonly<Record<string, string>> = {
   saved: '保存しました。',
   registered: '登録しました。「更新」で各ソースのスナップショットを取得してください。',
   deleted: '削除しました。',
+  imported: 'Ingenium の play note を取り込みました。',
+  judged: '判定を保存しました。Actio へ書き戻せなかったときは判定の横に理由を出しています。',
 };
 
 export interface PageNotice {
