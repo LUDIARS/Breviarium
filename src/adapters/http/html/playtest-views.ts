@@ -40,28 +40,29 @@ function bugSummary(run: PlaytestRun, latest: ReadonlyMap<string, FeedbackEntry>
 }
 
 /** One run on the project page: its video, review and bug candidates. */
-function runPreview(code: string, run: PlaytestRun, latest: ReadonlyMap<string, FeedbackEntry>): string {
+function runPreview(code: string, run: PlaytestRun, latest: ReadonlyMap<string, FeedbackEntry>, local: boolean): string {
   const video = `<video controls preload="none" style="width:100%;max-height:60vh" src="${esc(playtestPath(code, runSlug(run.runId), '/video'))}"></video>`;
   const review = run.review === null
     ? '<h4>感想</h4><p class="empty">感想はありません (作れなかった run)。</p>'
     : `<h4>感想 ${humanChip(latest.get(feedbackKey(run.runId, 'review')))}</h4><p>${esc(run.review.summary)}</p>${pointList('良い点', run.review.good)}${pointList('悪い点', run.review.bad)}${pointList('迷ったところ', run.review.confusions)}`;
   return `<details open><summary>${esc(run.createdAt.slice(0, 16).replace('T', ' '))} UTC ／ ${esc(run.persona)} ／ ${esc(run.outcome)}</summary>
-${video}${review}${bugSummary(run, latest)}<p><a href="${esc(playtestPath(code, runSlug(run.runId)))}">この run を精査する</a></p></details>`;
+${video}${review}${bugSummary(run, latest)}${local ? `<p><a href="${esc(playtestPath(code, runSlug(run.runId)))}">この run を精査する</a></p>` : ''}</details>`;
 }
 
 /**
- * The project page's playtest section, placed after the sprints. A viewer gets the counts only (the run's
- * text is the game's own content, BR-UX-6); the local user also gets the newest runs with a video
- * (PROJECT_PAGE_VIDEOS of them) with their review and bug candidates, and the link to the triage page for the rest.
+ * The project page's playtest section, placed after the sprints: the newest runs with a video
+ * (PROJECT_PAGE_VIDEOS of them) with their review and bug candidates, read-only. Only the local user gets the
+ * link to the triage page (judging and importing stay on this PC, BR-UX-6).
  */
 export function playtestSection(code: string, board: PlaytestBoard | undefined, local: boolean): string {
   if (board === undefined) return '';
   const counts = board.counts;
   const imported = counts.importedAt === null ? '未取り込み' : `取り込み ${esc(counts.importedAt.slice(0, 16).replace('T', ' '))} UTC`;
   const recent = (board.runs?.runs ?? []).filter((run) => run.videoPath !== null).slice(0, PROJECT_PAGE_VIDEOS);
-  const detail = local
-    ? `<p><a class="button-link" href="${esc(playtestPath(code))}">精査ページを開く (全 run)</a></p><h3>最新の動画 ${recent.length} 件</h3>${recent.length === 0 ? '<p class="empty">動画のある run はありません。</p>' : recent.map((run) => runPreview(code, run, board.latest)).join('')}`
-    : '<p class="small muted">感想・不具合候補・動画の中身はこの PC の画面だけで表示します。</p>';
+  const triage = local
+    ? `<p><a class="button-link" href="${esc(playtestPath(code))}">精査ページを開く (全 run)</a></p>`
+    : '<p class="small muted">判定と取り込みはこの PC の画面だけで行います。</p>';
+  const detail = `${triage}<h3>最新の動画 ${recent.length} 件</h3>${recent.length === 0 ? '<p class="empty">動画のある run はありません。</p>' : recent.map((run) => runPreview(code, run, board.latest, local)).join('')}`;
   return `<section class="card"><h2>AI プレイテスト (Ingenium)</h2>
 <p>run ${counts.runs} 件 ／ 不具合候補 ${counts.candidates} 件 (人間の判定 ${counts.labelled} 件) ／ ${esc(agreementText(counts.agreement))}</p>
 <p class="small muted">${imported}</p>${detail}</section>`;

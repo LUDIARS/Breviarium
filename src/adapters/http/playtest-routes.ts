@@ -20,7 +20,8 @@ function withError(path: string, code: string): HttpResponse {
 
 /**
  * The AI playtest triage pages (spec/feature/playtest-triage.md): the run list, a run with its video,
- * review and bug candidates, the import of Ingenium's play notes and a person's judgement. All local only.
+ * review and bug candidates, the import of Ingenium's play notes and a person's judgement. All local only except
+ * the video, which the project page also shows to a viewer.
  */
 export function registerPlaytestRoutes(router: Router, deps: AppDeps): Router {
   const playtests = deps.playtests;
@@ -61,9 +62,8 @@ ${runRows(b.projectCode, runs, b.latest)}`;
       if (!board.ok || !run) return withError(playtestPath(code), board.ok ? 'run_not_found' : board.error.code);
       return htmlResponse(200, page(`AI プレイテスト ${run.createdAt.slice(0, 16)} — Breviarium`, `${banners(noticeFromQuery(req.query))}${runDetail(board.value.projectCode, run, board.value.latest)}`, req.accessLevel));
     })
-    .add('GET', '/projects/:code/playtests/:run/video', async (req, params) => {
-      const refused = localOnly(req);
-      if (refused) return refused;
+    // The video is read-only, so a viewer may play it too (the project page shows the newest runs to a viewer).
+    .add('GET', '/projects/:code/playtests/:run/video', async (_req, params) => {
       const path = await runVideo(playtests, params['code'] ?? '', params['run'] ?? '');
       return path ? { status: 200, headers: {}, body: '', file: { path, contentType: 'video/mp4' } } : jsonResponse(404, { error: 'video_not_found' });
     })

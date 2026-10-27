@@ -178,15 +178,17 @@ describe('triage pages', async () => {
     assert.equal((await store.listFeedback('Br'))[1]?.actio.status, 'no-task');
   });
 
-  it('gives a viewer nothing of the run (403) and only the counts on the project page', async () => {
+  it('keeps the triage pages from a viewer (403) but shows the newest runs and their video read-only', async () => {
     const { app } = await setup();
     await app.handle(req('POST', '/projects/Br/playtests/import'));
-    for (const path of ['/projects/Br/playtests', '/projects/Br/playtests/sample-novice-s1-20261026T000000Z', '/projects/Br/playtests/sample-novice-s1-20261026T000000Z/video']) {
+    for (const path of ['/projects/Br/playtests', '/projects/Br/playtests/sample-novice-s1-20261026T000000Z']) {
       assert.equal((await app.handle(req('GET', path, '', 'viewer'))).status, 403, path);
     }
+    assert.equal((await app.handle(req('GET', '/projects/Br/playtests/sample-novice-s1-20261026T000000Z/video', '', 'viewer'))).status, 200);
     const page = await app.handle(req('GET', '/projects/Br', '', 'viewer'));
-    assert.match(page.body, /AI プレイテスト/);
-    assert.doesNotMatch(page.body, /進めない|総評|精査ページを開く/);
+    assert.match(page.body, /総評/);
+    assert.match(page.body, /進めない/);
+    assert.doesNotMatch(page.body, /精査ページを開く|この run を精査する/);
   });
 
   it('shows the local user the newest runs with a video, their review and bug candidates on the project page, after the sprints', async () => {
