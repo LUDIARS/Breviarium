@@ -189,11 +189,13 @@ describe('triage pages', async () => {
     assert.doesNotMatch(page.body, /進めない|総評|精査ページを開く/);
   });
 
-  it('shows the local user every run with its video and review on the project page, after the sprints', async () => {
+  it('shows the local user the newest runs with a video, their review and bug candidates on the project page, after the sprints', async () => {
     const { app } = await setup();
     await app.handle(req('POST', '/projects/Br/playtests/import'));
     const page = (await app.handle(req('GET', '/projects/Br'))).body;
     assert.match(page, /総評/);
+    assert.match(page, /見つけた不具合 \(\d+ 件\)/);
+    assert.match(page, /進めない/);
     assert.ok(page.includes('/projects/Br/playtests/sample-novice-s1-20261026T000000Z/video'));
     assert.ok(page.indexOf('AI プレイテスト') > page.indexOf('<summary><h2>検査とクラス</h2></summary>'));
   });
