@@ -3,6 +3,7 @@ import type { SourceRegistry } from '../../snapshots/ports.ts';
 import type { BreviariumConfig } from '../config/load-config.ts';
 import { createActioSource } from './actio-source.ts';
 import { createAnatomiaCliRunner, createAnatomiaCliSource } from './anatomia-cli-source.ts';
+import { createOntologyLocator } from './anatomia-ontology.ts';
 import { createAnatomiaSource } from './anatomia-source.ts';
 import { createConcordiaReviewsSource } from './concordia-reviews-source.ts';
 import { createConcordiaSource } from './concordia-source.ts';
@@ -19,15 +20,16 @@ import { createVoluptasSource } from './voluptas-source.ts';
 
 type SourceConfig = Pick<
   BreviariumConfig,
-  'sourceTimeoutMs' | 'praeformaUrl' | 'elegantiaUrl' | 'concordiaUrl' | 'actioUrl' | 'excubitorUrl' | 'voluptasDataDir' | 'anatomiaCliPath' | 'anatomiaCliTimeoutMs' | 'revisorCliPath'
+  'sourceTimeoutMs' | 'praeformaUrl' | 'elegantiaUrl' | 'concordiaUrl' | 'actioUrl' | 'excubitorUrl' | 'voluptasDataDir' | 'anatomiaUrl' | 'anatomiaCliPath' | 'anatomiaCliTimeoutMs' | 'revisorCliPath'
 >;
 
-/** Sources read from local files: the registered checkout (and its git index) and the Voluptas data directory. */
-function localSources(config: SourceConfig): Pick<SourceRegistry, 'git' | 'anatomia' | 'repo-artifacts' | 'voluptas'> {
+/** Sources read from local files: the registered checkout (and its git index, and the Anatomia ontology directory) and the Voluptas data directory. */
+function localSources(config: SourceConfig, fetchImpl: FetchLike): Pick<SourceRegistry, 'git' | 'anatomia' | 'repo-artifacts' | 'voluptas'> {
   const git = createGitRunner(config.sourceTimeoutMs);
   return {
     git: createGitSource(git),
-    anatomia: createAnatomiaSource(git),
+    // The ontology lookup is the one HTTP read of a local source: where Anatomia keeps the declarations.
+    anatomia: createAnatomiaSource(git, createOntologyLocator(config.anatomiaUrl ? { baseUrl: config.anatomiaUrl, fetchImpl, timeoutMs: config.sourceTimeoutMs } : undefined)),
     'repo-artifacts': createRepoArtifactsSource(),
     voluptas: createVoluptasSource(config.voluptasDataDir),
   };
@@ -62,5 +64,5 @@ function cliSources(config: SourceConfig): Pick<SourceRegistry, 'anatomia-cli' |
 
 /** Every source from configuration. Unconfigured HTTP sources and CLIs report "not connected". */
 export function createSources(config: SourceConfig, fetchImpl: FetchLike): SourceRegistry {
-  return { ...localSources(config), ...httpSources(config, fetchImpl), ...cliSources(config) };
+  return { ...localSources(config, fetchImpl), ...httpSources(config, fetchImpl), ...cliSources(config) };
 }

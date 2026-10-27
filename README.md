@@ -44,6 +44,7 @@ npm test                    # node --test "tests/**/*.test.ts"
 | `BREVIARIUM_VOLUPTAS_DATA_DIR` | | 未接続 | Voluptas のローカルデータ (絶対パス)。登録の `voluptasPath` はこの配下の相対パス。旧名 `BREVIARIUM_VOLPUTAS_DATA_DIR` も読む (新名が優先) |
 | `BREVIARIUM_INGENIUM_DATA_DIR` | | 未接続、catalog は `${ARS_ROOT}/Ingenium/data/playtests` | Ingenium の play note (絶対パス)。登録の `ingeniumGame` はこの配下のゲーム id。AI プレイテスト精査 ([playtest-triage](spec/feature/playtest-triage.md)) の取り込み元で、中身は loopback の画面だけに出す |
 | `BREVIARIUM_REFRESH_INTERVAL_SEC` | | 0 (無効)、catalog は `3600` | 定期更新の間隔 (60〜86400)。1 プロジェクトずつ直列に全ソースを更新し、失敗したソースは前回値を保持。手動 refresh と重なったプロジェクトは 409 で片方を飛ばす。旧名 `BR_REFRESH_INTERVAL_SEC` も読む (新名が優先) |
+| `BREVIARIUM_ANATOMIA_URL` / `ANATOMIA_URL` | | 未接続 | Anatomia (`GET /api/projects`)。登録にオントロジーのディレクトリ (`ontologyDir`) を持つプロジェクトは、ドメイン宣言をそこから読む (リポに宣言を置かないゲームなど)。明示値が優先、無ければ Anatomia の catalog が provides する topology env。未接続ならリポの `spec/domains` だけを読む |
 | `BREVIARIUM_ANATOMIA_CLI` | | 未接続、catalog は `${ARS_ROOT}/Anatomia/bin/anatomia.mjs` | Anatomia CLI (絶対パス)。層の割当率 `anatomia/layer-assignment` に使う (所属率 `anatomia/domain-coverage` は CLI を使わずリポの宣言と git の index から出す) |
 | `BREVIARIUM_ANATOMIA_CLI_TIMEOUT_MS` | | 120000、catalog も `120000` | Anatomia CLI 1 回の上限 (1000〜600000 ms。範囲外・整数でない値は起動エラー)。大きいプロジェクトで `domains program` が間に合わないときに延ばす。超えた回は理由付きの失敗で前回値を保持 |
 | `BREVIARIUM_REVISOR_CLI` | | 未接続、catalog は `${ARS_ROOT}/Revisor/src/cli.mjs` | Revisor CLI (絶対パス)。`anatomia/verify` と `revisor/merge-risk`、Revisor 登録 (整備チェックリスト) に使う (版ファイルは状態「リリース済み」の判定に使わない。判定は GitHub Release) |

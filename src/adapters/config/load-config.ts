@@ -25,6 +25,8 @@ export interface BreviariumConfig {
   /** Excubitor's API (`GET /api/v1/services`); absent = the excubitor source is not connected. */
   readonly excubitorUrl?: string;
   readonly voluptasDataDir?: string;
+  /** Anatomia's API, read for a project's ontology directory; absent = declarations come from the repository only. */
+  readonly anatomiaUrl?: string;
   /** Ingenium's play notes (`data/playtests`, absolute); absent = the playtest triage cannot import. */
   readonly ingeniumDataDir?: string;
   /** Anatomia CLI script (`bin/anatomia.mjs`); absent = the anatomia-cli source is not connected. */
@@ -126,6 +128,7 @@ export function loadConfig(env: Env): BreviariumConfig {
   const concordiaUrl = asConfigError(() => resolveSourceUrl(env, 'CONCORDIA'));
   const actioUrl = asConfigError(() => resolveSourceUrl(env, 'ACTIO'));
   const excubitorUrl = asConfigError(() => resolveSourceUrl(env, 'EXCUBITOR'));
+  const anatomiaUrl = asConfigError(() => resolveSourceUrl(env, 'ANATOMIA'));
   // The former spelling remains a compatibility alias for existing deployments.
   const voluptasDataKey = env['BREVIARIUM_VOLUPTAS_DATA_DIR']?.trim()
     ? 'BREVIARIUM_VOLUPTAS_DATA_DIR'
@@ -145,6 +148,7 @@ export function loadConfig(env: Env): BreviariumConfig {
     ...(concordiaUrl ? { concordiaUrl } : {}),
     ...(actioUrl ? { actioUrl } : {}),
     ...(excubitorUrl ? { excubitorUrl } : {}),
+    ...(anatomiaUrl ? { anatomiaUrl } : {}),
     ...(voluptasDataDir ? { voluptasDataDir } : {}),
     ...(ingeniumDataDir ? { ingeniumDataDir } : {}),
     ...(anatomiaCliPath ? { anatomiaCliPath } : {}),
