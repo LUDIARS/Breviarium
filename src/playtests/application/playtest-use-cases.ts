@@ -74,12 +74,6 @@ export async function loadPlaytestBoard(deps: PlaytestDeps, code: string): Promi
   });
 }
 
-/** The counts only (for the project page, which a viewer may open); undefined when no game is bound. */
-export async function loadPlaytestCounts(deps: PlaytestDeps, code: string): Promise<PlaytestCounts | undefined> {
-  const board = await loadPlaytestBoard(deps, code);
-  return board.ok ? board.value.counts : undefined;
-}
-
 export function findRun(board: PlaytestBoard, slug: string): PlaytestRun | undefined {
   return board.runs?.runs.find((run) => runSlug(run.runId) === slug);
 }

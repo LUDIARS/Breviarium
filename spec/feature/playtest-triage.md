@@ -43,7 +43,7 @@ Ingenium の次の周回 ◀── --feedback <feedback.jsonl> (人間が判定�
 | `POST /projects/:code/playtests/:run/feedback` | 判定の保存 (303、PRG) |
 
 - 中身はゲームそのものの内容なので、Cloudflare Access の閲覧者 (`viewer`) には上の経路をすべて 403 `local_only` で返す。
-- プロジェクト詳細 (`GET /projects/:code`) には「AI プレイテスト」区画を出す。閲覧者には件数 (run・候補・判定済み) と一致率だけ、loopback には精査ページへのリンクを出す。
+- プロジェクト詳細 (`GET /projects/:code`) には、スプリント区画の次に「AI プレイテスト」区画を出す。閲覧者には件数 (run・候補・判定済み) と一致率だけを出す。loopback には精査ページへのリンクと、run ごとの動画と感想 (総評・良い点・悪い点・迷ったところ) を新しい順に出す。最新の run だけ開き、残りは折りたたむ。動画は再生するまで読み込まない (`preload="none"`)。
 - summary.md / summary.json の書き出しには入れない。
 
 ## 5. 判定

@@ -1,4 +1,5 @@
 // @implements SPEC-br-playtest-triage
+import type { PlaytestBoard } from '../../../playtests/application/playtest-use-cases.ts';
 import { feedbackKey } from '../../../playtests/domain/feedback-rules.ts';
 import {
   type Agreement,
@@ -8,7 +9,6 @@ import {
   type BugLabel,
   type FeedbackEntry,
   LLM_VERDICT_TEXT,
-  type PlaytestCounts,
   type PlaytestRun,
   REVIEW_LABEL_TEXT,
   REVIEW_LABELS,
@@ -28,17 +28,34 @@ export function agreementText(a: Agreement): string {
   return `LLM と人間の一致率 ${rate}${unsure === 0 ? '' : ` ／ LLM が要確認とした ${unsure} 件 → 不具合 ${a.inconclusive.bug}・誤検知 ${a.inconclusive['false-positive']}・判断不能 ${a.inconclusive.unclear}`}`;
 }
 
+/** One run on the project page: its video and review, folded except the newest. */
+function runPreview(code: string, run: PlaytestRun, latest: ReadonlyMap<string, FeedbackEntry>, open: boolean): string {
+  const video = run.videoPath
+    ? `<video controls preload="none" style="width:100%;max-height:60vh" src="${esc(playtestPath(code, runSlug(run.runId), '/video'))}"></video>`
+    : '<p class="empty">動画はありません。</p>';
+  const review = run.review === null
+    ? '<p class="empty">感想はありません (作れなかった run)。</p>'
+    : `<p>${esc(run.review.summary)}</p>${pointList('良い点', run.review.good)}${pointList('悪い点', run.review.bad)}${pointList('迷ったところ', run.review.confusions)}`;
+  return `<details${open ? ' open' : ''}><summary>${esc(run.createdAt.slice(0, 16).replace('T', ' '))} UTC ／ ${esc(run.persona)} ／ ${esc(run.outcome)} ${humanChip(latest.get(feedbackKey(run.runId, 'review')))}</summary>
+${video}${review}<p><a href="${esc(playtestPath(code, runSlug(run.runId)))}">この run を精査する</a></p></details>`;
+}
+
 /**
- * The project page's playtest section. A viewer gets the counts only (the run's text is the game's own
- * content, BR-UX-6); the local user gets the link to the triage page.
+ * The project page's playtest section, placed after the sprints. A viewer gets the counts only (the run's
+ * text is the game's own content, BR-UX-6); the local user also gets every run's video and review
+ * (newest first, the newest open) and the link to the triage page.
  */
-export function playtestSection(code: string, counts: PlaytestCounts | undefined, local: boolean): string {
-  if (counts === undefined) return '';
+export function playtestSection(code: string, board: PlaytestBoard | undefined, local: boolean): string {
+  if (board === undefined) return '';
+  const counts = board.counts;
   const imported = counts.importedAt === null ? '未取り込み' : `取り込み ${esc(counts.importedAt.slice(0, 16).replace('T', ' '))} UTC`;
-  const link = local ? `<p><a class="button-link" href="${esc(playtestPath(code))}">精査ページを開く</a></p>` : '<p class="small muted">感想・不具合候補・動画の中身はこの PC の画面だけで表示します。</p>';
+  const runs = board.runs?.runs ?? [];
+  const detail = local
+    ? `<p><a class="button-link" href="${esc(playtestPath(code))}">精査ページを開く</a></p><h3>動画と感想</h3>${runs.length === 0 ? '<p class="empty">取り込んだ run はありません。</p>' : runs.map((run, i) => runPreview(code, run, board.latest, i === 0)).join('')}`
+    : '<p class="small muted">感想・不具合候補・動画の中身はこの PC の画面だけで表示します。</p>';
   return `<section class="card"><h2>AI プレイテスト (Ingenium)</h2>
 <p>run ${counts.runs} 件 ／ 不具合候補 ${counts.candidates} 件 (人間の判定 ${counts.labelled} 件) ／ ${esc(agreementText(counts.agreement))}</p>
-<p class="small muted">${imported}</p>${link}</section>`;
+<p class="small muted">${imported}</p>${detail}</section>`;
 }
 
 function verdictChip(verdict: BugCandidateView['verdict']): string {

@@ -1,5 +1,5 @@
 // @implements SPEC-br-web-ui
-import type { PlaytestCounts } from '../../../playtests/domain/model.ts';
+import type { PlaytestBoard } from '../../../playtests/application/playtest-use-cases.ts';
 import type { ProjectOverview } from '../../../snapshots/application/project-overview.ts';
 import type { ServiceLinkBases } from '../../config/service-links-config.ts';
 import type { AccessLevel } from '../http-types.ts';
@@ -48,14 +48,14 @@ function editSection(o: ProjectOverview): string {
 /**
  * `GET /projects/:code`: lifecycle with the links out to Praeforma / Anatomia / Actio (`links` = the bases for the
  * request's access level), the startup / loop / analyze sections (the loop first during a sprint, the startup
- * folded once complete), inspections with evidence,
+ * folded once complete), inspections with evidence (folded), the sprints and the AI playtest runs right after them,
  * snapshot freshness, refresh and edit. A Cloudflare Access viewer gets the same facts without any refresh, edit or delete form.
  */
-export function renderProjectPage(o: ProjectOverview, notice: PageNotice, level: AccessLevel, links: ServiceLinkBases = {}, playtest?: PlaytestCounts): string {
+export function renderProjectPage(o: ProjectOverview, notice: PageNotice, level: AccessLevel, links: ServiceLinkBases = {}, playtest?: PlaytestBoard): string {
   const local = level === 'local';
   const body = `${banners(notice)}${header(o, links)}
 ${workflowSections(o.workflow)}
-<section class="card"><h2>検査とクラス</h2><p class="small muted">— は未計測 (0 点や推測で埋めない)。クラス基準は spec/feature/grading.md。</p>${inspectionTable(o.inspections)}</section>
+<details class="card phase-card"><summary><h2>検査とクラス</h2></summary><p class="small muted">— は未計測 (0 点や推測で埋めない)。クラス基準は spec/feature/grading.md。</p>${inspectionTable(o.inspections)}</details>
 ${sprintSection(o.sprints)}
 ${playtestSection(o.project.code, playtest, local)}
 ${refreshSection(o, local)}${local ? editSection(o) : ''}`;
