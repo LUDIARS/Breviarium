@@ -49,14 +49,15 @@ describe('buildCrossSprintBoard', () => {
 
   it('keeps planning sprints when the team has no active sprint', () => {
     const planning = [
-      { id: 's1', name: 'GLab Sprint 1', startsOn: '2026-10-29', endsOn: '2026-11-07' },
-      { id: 's2', name: 'GLab Sprint 2', startsOn: '2026-11-08', endsOn: '2026-11-29' },
+      { id: 's1', name: 'GLab Sprint 1', goal: '11/7 OB会', startsOn: '2026-10-29', endsOn: '2026-11-07' },
+      { id: 's2', name: 'GLab Sprint 2', goal: null, startsOn: '2026-11-08', endsOn: '2026-11-29' },
     ];
     const board = buildCrossSprintBoard(crossSprint, [
       { code: 'glab', project: project({ code: 'glab' }), actio: actio({ teams: [actioTeam({ teamId: 'team_g', activeSprint: null, planningSprints: planning, backlogUnassigned: { total: 3, project: 0 } })] }) },
     ]);
     assert.equal(board.active, null);
     assert.deepEqual(board.planningSprints.map((s) => s.name), ['GLab Sprint 1', 'GLab Sprint 2']);
+    assert.deepEqual(board.planningSprints.map((s) => s.goal), ['11/7 OB会', null]);
     assert.equal(board.related[0]?.activeSprintTasks, null);
   });
 });

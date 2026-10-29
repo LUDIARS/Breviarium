@@ -32,7 +32,7 @@ function renderSprints(s: SprintSummary | null): string {
     ['チーム', 'クリティカルパス', '人間 / AI', '期限超過', '計画中のスプリント', '未割付バックログ (全体 / project)'],
     s.teams.map((t) => {
       const a = t.activeSprint;
-      const planning = t.planningSprints.map((p) => `${p.name} (${p.startsOn ?? '—'}〜${p.endsOn ?? '—'})`).join(' / ') || 'なし';
+      const planning = t.planningSprints.map((p) => `${p.goal ? `${p.goal} — ` : ''}${p.name} (${p.startsOn ?? '—'}〜${p.endsOn ?? '—'})`).join(' / ') || 'なし';
       return [t.teamName, a ? a.criticalPath : null, a ? `${a.byExecutor.human} / ${a.byExecutor.ai}` : null, a ? a.overdue : null, planning, `${t.backlogUnassigned.total} / ${t.backlogUnassigned.project}`];
     }),
   );

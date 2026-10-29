@@ -50,6 +50,9 @@ CrossSprint = { code, name, actioTeamId, related: string[], registeredAt, update
 - アクティブなスプリントの消化は **スプリント全体** のタスクで数える (特定プロジェクトの持ち分では数えない)。
   経過率・クラス (`terpsichore/sprint-health` と同じ規則) は [sprints](sprints.md) と同じ計算。
 - 計画中のスプリントとチーム全体の未割付バックログ件数をそのまま出す。
+- 計画中のスプリントはゴールを先頭に出す。ゴールはスプリントが向かう節目 (マイルストーン) の名前としても使う
+  (例: GLab は「11/7 OB会」「11/29 GLab集会」)。ゴールの正本は Actio で、Actio の Cc 向け集計
+  (`planningSprints[].goal`) から読む。未設定なら名前と期間だけを出す。
 - 関連プロジェクトごとの状態: `in-team` (スプリント内の持ち分 完了/件数・未割付バックログ件数)、`not-in-team`
   (Actio でそのプロジェクトにチームが割り当てられていない)、`no-snapshot` (Actio 未取得)、`unregistered`。
 

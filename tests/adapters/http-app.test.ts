@@ -481,7 +481,7 @@ describe('sprints (Terpsichore)', () => {
     assert.match(body, /クリティカルパス 3 件/);
     assert.match(body, /人間 10 件 \/ AI 8 件/);
     assert.match(body, /<li class="warn">期限超過 1 件<\/li>/);
-    assert.match(body, /<li>Sprint 13 \(2026-10-06〜2026-10-19\)<\/li>/);
+    assert.match(body, /<li><strong>11\/7 OB会<\/strong> — Sprint 13 \(2026-10-06〜2026-10-19\)<\/li>/);
     assert.match(body, /未割付バックログ: 25 件 \(うちこのプロジェクト 9 件\)/);
   });
 
@@ -521,7 +521,7 @@ describe('sprints (Terpsichore)', () => {
     const md = (await app.handle(req('GET', '/projects/Br/summary.md'))).body;
     assert.match(md, /## スプリント \(Terpsichore: チームを回す\)/);
     assert.match(md, /\| KonbiniDominant \| Sprint 12 \| goal text \| 2026-09-22〜2026-10-05 \/ 2026-10-07 \(\+2 日\) \| 2\/7 \(29%\) \| 6\/18 \(33%\) \| 31% \(残 9 日\) \| C \|/);
-    assert.match(md, /\| KonbiniDominant \| 3 \| 10 \/ 8 \| 1 \| Sprint 13 \(2026-10-06〜2026-10-19\) \| 25 \/ 9 \|/);
+    assert.match(md, /\| KonbiniDominant \| 3 \| 10 \/ 8 \| 1 \| 11\/7 OB会 — Sprint 13 \(2026-10-06〜2026-10-19\) \| 25 \/ 9 \|/);
     const json = (await app.handle(req('GET', '/projects/Br/summary.json'))).body;
     const summary = JSON.parse(json) as { sprints: { today: string; teams: { teamName: string; activeSprint: { grade: string; project: object; remainingDays: number } }[] } };
     assert.equal(summary.sprints.today, '2026-09-26');

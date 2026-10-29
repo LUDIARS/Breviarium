@@ -1,4 +1,5 @@
 // @implements SPEC-br-web-ui
+import type { PlanningSprintFact } from '../../../inspections/domain/evidence.ts';
 import { percent } from '../../../inspections/domain/inspection-factory.ts';
 import { type ActiveSprintProgress, type DoneOfTotal, SPRINT_BOARD_TITLE, type SprintBoard, type TeamSprintView } from '../../../inspections/domain/sprint-progress.ts';
 import { esc } from './escape.ts';
@@ -52,10 +53,18 @@ ${p.goal ? `<p class="small">ゴール: ${esc(p.goal)}</p>` : ''}<p class="small
 <ul class="plain small"><li>クリティカルパス ${p.criticalPath} 件</li><li>人間 ${p.byExecutor.human} 件 / AI ${p.byExecutor.ai} 件</li><li${p.overdue > 0 ? ' class="warn"' : ''}>期限超過 ${p.overdue} 件</li></ul>`;
 }
 
-function planningList(team: TeamSprintView): string {
-  if (team.planningSprints.length === 0) return '<p class="small">計画中のスプリント: なし</p>';
-  const items = team.planningSprints.map((s) => `<li>${esc(s.name)} (${esc(s.startsOn ?? '—')}〜${esc(s.endsOn ?? '—')})</li>`).join('');
+/** Planning sprints; a goal is shown first because teams use it to name the milestone the sprint ends at. */
+export function planningSprintList(sprints: readonly PlanningSprintFact[]): string {
+  if (sprints.length === 0) return '<p class="small">計画中のスプリント: なし</p>';
+  const items = sprints.map((s) => {
+    const period = `${esc(s.name)} (${esc(s.startsOn ?? '—')}〜${esc(s.endsOn ?? '—')})`;
+    return s.goal ? `<li><strong>${esc(s.goal)}</strong> — ${period}</li>` : `<li>${period}</li>`;
+  }).join('');
   return `<p class="small">計画中のスプリント:</p><ul class="plain small">${items}</ul>`;
+}
+
+function planningList(team: TeamSprintView): string {
+  return planningSprintList(team.planningSprints);
 }
 
 function teamBlock(team: TeamSprintView): string {

@@ -240,6 +240,8 @@ export interface ActiveSprintFact {
 export interface PlanningSprintFact {
   readonly id: string;
   readonly name: string;
+  /** The sprint goal; teams also use it to name the milestone the sprint ends at (e.g. 11/7 OB会). null when unset. */
+  readonly goal: string | null;
   readonly startsOn: string | null;
   readonly endsOn: string | null;
 }

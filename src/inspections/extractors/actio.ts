@@ -87,6 +87,7 @@ function planningSprintOf(value: unknown): PlanningSprintFact | null {
   return {
     id,
     name: text(sprint['name']) ?? (id || '(名前なし)'),
+    goal: text(sprint['goal']),
     startsOn: toCalendarDate(sprint['startsOn']),
     endsOn: toCalendarDate(sprint['endsOn']),
   };

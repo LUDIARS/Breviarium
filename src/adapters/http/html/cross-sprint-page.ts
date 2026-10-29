@@ -6,7 +6,7 @@ import type { AccessLevel } from '../http-types.ts';
 import { esc } from './escape.ts';
 import { gradeClass, timeTag } from './format.ts';
 import { banners, page, type PageNotice } from './layout.ts';
-import { doneBar, progressBar, sprintPeriod } from './sprint-views.ts';
+import { doneBar, planningSprintList, progressBar, sprintPeriod } from './sprint-views.ts';
 
 const RELATED_STATUS: Readonly<Record<RelatedStatus, string>> = {
   'in-team': 'チームに割当済み',
@@ -53,9 +53,7 @@ function sprintsSection(board: CrossSprintBoard): string {
   }
   const meta = `<p class="small muted">Actio 集計: ${timeTag(board.generatedAt)} (チーム ${esc(board.teamName ?? '—')})。経過率は集計日 (${esc(board.today ?? '—')} JST) で計算。消化はスプリント全体のタスクで数える。</p>`;
   const active = board.active ? activeBlock(board.active) : '<p class="muted">アクティブなスプリントなし</p>';
-  const planning = board.planningSprints.length === 0
-    ? '<p class="small">計画中のスプリント: なし</p>'
-    : `<p class="small">計画中のスプリント:</p><ul class="plain small">${board.planningSprints.map((s) => `<li>${esc(s.name)} (${esc(s.startsOn ?? '—')}〜${esc(s.endsOn ?? '—')})</li>`).join('')}</ul>`;
+  const planning = planningSprintList(board.planningSprints);
   const backlog = `<p class="small">未割付バックログ: ${board.backlogUnassignedTotal ?? 0} 件 (チーム全体)</p>`;
   return `<section class="card">${title}${meta}${active}${planning}${backlog}</section>`;
 }

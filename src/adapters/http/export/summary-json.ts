@@ -37,7 +37,7 @@ export interface SprintSummary {
       readonly byExecutor: { readonly human: number; readonly ai: number };
       readonly overdue: number;
     } | null;
-    readonly planningSprints: readonly { readonly name: string; readonly startsOn: string | null; readonly endsOn: string | null }[];
+    readonly planningSprints: readonly { readonly name: string; readonly goal: string | null; readonly startsOn: string | null; readonly endsOn: string | null }[];
     readonly backlogUnassigned: { readonly total: number; readonly project: number };
   }[];
 }
@@ -111,7 +111,7 @@ export function toSprintSummary(board: SprintBoard): SprintSummary {
             overdue: t.active.overdue,
           }
         : null,
-      planningSprints: t.planningSprints.map((s) => ({ name: s.name, startsOn: s.startsOn, endsOn: s.endsOn })),
+      planningSprints: t.planningSprints.map((s) => ({ name: s.name, goal: s.goal, startsOn: s.startsOn, endsOn: s.endsOn })),
       backlogUnassigned: { ...t.backlogUnassigned },
     })),
   };

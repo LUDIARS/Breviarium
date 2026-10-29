@@ -40,6 +40,7 @@ describe('actio source', () => {
     assert.equal(e.teams[0]?.activeSprint?.name, 'Sprint 12');
     assert.equal(e.teams[0]?.activeSprint?.tasks.project.total, 7);
     assert.equal(e.teams[0]?.planningSprints[0]?.name, 'Sprint 13');
+    assert.equal(e.teams[0]?.planningSprints[0]?.goal, '11/7 OB会');
   });
 
   it('asks for bindings.actioProjectCode when it is bound', async () => {

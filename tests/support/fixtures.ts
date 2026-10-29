@@ -241,7 +241,7 @@ export function actioResponse(): Record<string, unknown> {
             doneMinutes: 1500,
           },
         },
-        planningSprints: [{ id: 'sprint_y', name: 'Sprint 13', startsOn: '2026-10-06', endsOn: '2026-10-19' }],
+        planningSprints: [{ id: 'sprint_y', name: 'Sprint 13', goal: '11/7 OB会', startsOn: '2026-10-06', endsOn: '2026-10-19' }],
         backlogUnassigned: { total: 25, project: 9 },
       },
     ],
@@ -285,7 +285,7 @@ export function actioTeam(overrides: Partial<ActioTeamFact> = {}): ActioTeamFact
     teamId: 'team_x',
     teamName: 'KonbiniDominant',
     activeSprint: activeSprint(),
-    planningSprints: [{ id: 'sprint_y', name: 'Sprint 13', startsOn: '2026-10-06', endsOn: '2026-10-19' }],
+    planningSprints: [{ id: 'sprint_y', name: 'Sprint 13', goal: '11/7 OB会', startsOn: '2026-10-06', endsOn: '2026-10-19' }],
     backlogUnassigned: { total: 25, project: 9 },
     ...overrides,
   };
