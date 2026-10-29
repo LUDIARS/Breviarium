@@ -1,0 +1,18 @@
+{
+  "name": "cross-sprints",
+  "description": "プロジェクト横断スプリント (business): 複数プロジェクトにまたがる Actio チームのスプリントを 1 つの名前 (例 GLab) にまとめる。横断スプリントの登録規則 (code・name・Actio チーム id・関連プロジェクト)、関連プロジェクトの actio スナップショットからチームのスプリント (スプリント全体の消化・経過・計画中・未割付バックログ) と関連ごとの持ち分を組み立てる純関数 (buildCrossSprintBoard)、登録・更新・削除・集計の use case を所有する。スプリントの正本は Actio で、作らず変えない。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    { "pathPattern": "(^|/)src/cross-sprints/(?:.*/)?[^/]+$" },
+    { "pathPattern": "(^|/)tests/cross-sprints/(?:.*/)?[^/]+$" },
+    { "pathPattern": "^spec/feature/cross-project-sprints\\.md$" },
+    { "pathPattern": "^spec/domains/cross-sprints\\.domain\\.json$" }
+  ],
+  "cardTemplate": "Summarise the \"cross-sprints\" domain: cross-project sprints (one Actio team spanning several registered projects), their registration rules (code, name, Actio team id, related projects) and the board built from the related projects' cached actio snapshots.",
+  "specRefs": [
+    "spec/ux/product.md",
+    "spec/feature/cross-project-sprints.md",
+    "spec/feature/sprints.md"
+  ]
+}

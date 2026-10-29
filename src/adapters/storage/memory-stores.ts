@@ -1,4 +1,6 @@
 // @implements SPEC-br-snapshots
+import type { CrossSprint } from '../../cross-sprints/domain/model.ts';
+import type { CrossSprintStore } from '../../cross-sprints/ports.ts';
 import type { Project } from '../../registry/domain/model.ts';
 import { sameCode } from '../../registry/domain/registration-rules.ts';
 import type { ProjectStore } from '../../registry/ports.ts';
@@ -28,6 +30,28 @@ export class MemoryProjectStore implements ProjectStore {
     const index = this.projects.findIndex((p) => sameCode(p.code, code));
     if (index < 0) return false;
     this.projects.splice(index, 1);
+    return true;
+  }
+}
+
+/** Volatile cross-project sprint register for tests and explicit in-memory runs. */
+export class MemoryCrossSprintStore implements CrossSprintStore {
+  private readonly items: CrossSprint[] = [];
+
+  async list(): Promise<readonly CrossSprint[]> {
+    return this.items.map((s) => structuredClone(s));
+  }
+
+  async put(crossSprint: CrossSprint): Promise<void> {
+    const index = this.items.findIndex((s) => sameCode(s.code, crossSprint.code));
+    if (index >= 0) this.items[index] = structuredClone(crossSprint);
+    else this.items.push(structuredClone(crossSprint));
+  }
+
+  async remove(code: string): Promise<boolean> {
+    const index = this.items.findIndex((s) => sameCode(s.code, code));
+    if (index < 0) return false;
+    this.items.splice(index, 1);
     return true;
   }
 }

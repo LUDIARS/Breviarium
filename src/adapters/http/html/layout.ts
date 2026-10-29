@@ -12,7 +12,7 @@ export function page(title: string, body: string, level: AccessLevel): string {
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title><style>${STYLE}</style></head>
 <body><a class="skip-link" href="#main">本文へ移動</a>
-<header class="topbar"><a href="/">Breviarium — プロジェクト総覧</a>${viewer}<span class="muted small">表示はキャッシュ (スナップショット) から</span></header>
+<header class="topbar"><a href="/">Breviarium — プロジェクト総覧</a><nav class="menu" aria-label="メニュー"><a href="/">プロジェクト</a><a href="/cross-sprints">横断スプリント</a></nav>${viewer}<span class="muted small">表示はキャッシュ (スナップショット) から</span></header>
 <main id="main">${body}</main></body></html>`;
 }
 
@@ -29,6 +29,9 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   unknown_source: '未知のソースです。',
   invalid_sources: '更新するソースが空です。',
   confirm_mismatch: '確認欄にプロジェクトの code を入力してください。',
+  cross_sprint_not_found: '横断スプリントが登録されていません。',
+  invalid_related: '関連の指定が不正です (重複・件数超過)。',
+  unknown_related: '関連に登録されていないプロジェクトがあります。',
   playtest_not_bound: 'bindings.ingeniumGame が未登録です。登録を編集してゲーム id を入れてください。',
   playtest_not_connected: 'BREVIARIUM_INGENIUM_DATA_DIR が未設定のため取り込めません。',
   run_not_found: 'その run は取り込まれていません。',

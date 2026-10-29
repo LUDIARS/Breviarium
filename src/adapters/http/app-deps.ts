@@ -1,4 +1,5 @@
 // @implements SPEC-br-web-ui
+import type { CrossSprintDeps } from '../../cross-sprints/application/cross-sprint-use-cases.ts';
 import type { PlaytestDeps } from '../../playtests/application/playtest-use-cases.ts';
 import type { RegistryDeps } from '../../registry/application/registry-use-cases.ts';
 import type { Result } from '../../shared/result.ts';
@@ -16,6 +17,8 @@ export interface AppDeps {
   readonly registry: RegistryDeps;
   readonly overview: OverviewDeps;
   readonly refresh: RefreshFn;
+  /** Cross-project sprints (横断スプリント): their register and the snapshots they are read from. */
+  readonly crossSprints: CrossSprintDeps;
   /** Where the pages link out to Praeforma / Anatomia / Actio; absent = no links. */
   readonly links?: ServiceLinkConfig;
   /** The AI playtest triage (local only); absent = no playtest pages or section. */

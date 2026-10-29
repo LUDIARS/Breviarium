@@ -11,6 +11,7 @@ import { createPlayNoteDirReader } from './adapters/playtests/play-note-dir-read
 import { PlaytestFileStore } from './adapters/playtests/playtest-file-store.ts';
 import { startRefreshScheduler } from './adapters/scheduler/refresh-scheduler.ts';
 import { createSources } from './adapters/sources/create-sources.ts';
+import { CrossSprintFileStore } from './adapters/storage/cross-sprint-file-store.ts';
 import { ProjectFileStore } from './adapters/storage/project-file-store.ts';
 import { SnapshotFileStore } from './adapters/storage/snapshot-file-store.ts';
 import { importPlaytests, type PlaytestDeps } from './playtests/application/playtest-use-cases.ts';
@@ -30,6 +31,7 @@ async function main(): Promise<void> {
   const config = loadConfig(process.env);
   const projects = await ProjectFileStore.open(config.dataDir);
   const snapshots = new SnapshotFileStore(config.dataDir);
+  const crossSprints = await CrossSprintFileStore.open(config.dataDir);
   const playtestStore = new PlaytestFileStore(config.dataDir);
   const playtests: PlaytestDeps = {
     projects,
@@ -58,6 +60,7 @@ async function main(): Promise<void> {
       policy: { snapshotMaxAgeMs: config.snapshotMaxAgeHours * HOUR_MS },
     },
     refresh,
+    crossSprints: { crossSprints, projects, snapshots, clock: systemClock },
     links: config.serviceLinks,
     playtests,
   };

@@ -13,6 +13,7 @@ LUDIARS プロジェクト状態のエグゼクティブサマリー。登録し
 - キャッシュ: [spec/feature/snapshots.md](spec/feature/snapshots.md) ・ 画面/API: [spec/feature/web-ui.md](spec/feature/web-ui.md)
 - 登録規則: [spec/feature/project-registry.md](spec/feature/project-registry.md)
 - スプリント (Actio・Terpsichore): [spec/feature/sprints.md](spec/feature/sprints.md)
+- プロジェクト横断スプリント (例 GLab、関連メニュー): [spec/feature/cross-project-sprints.md](spec/feature/cross-project-sprints.md)
 - 公開入口 (Cloudflare Access): [spec/feature/web-entrance.md](spec/feature/web-entrance.md)
 
 ## 起動

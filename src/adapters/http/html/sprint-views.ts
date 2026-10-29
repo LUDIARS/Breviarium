@@ -28,17 +28,17 @@ export function sprintChips(board: SprintBoard | null): string {
 }
 
 /** A labelled bar: the text carries the numbers, the bar only repeats them. */
-function progressBar(label: string, value: number, max: number): string {
+export function progressBar(label: string, value: number, max: number): string {
   return `<div class="bar"><span>${esc(label)}</span><progress max="${Math.max(1, max)}" value="${Math.max(0, Math.min(value, max))}" aria-label="${esc(label)}"></progress></div>`;
 }
 
-function doneBar(label: string, c: DoneOfTotal): string {
+export function doneBar(label: string, c: DoneOfTotal): string {
   const share = c.total > 0 ? ` (${percent(c.done / c.total)})` : '';
   const cancelled = c.cancelled > 0 ? `、中止 ${c.cancelled} 件を除く` : '';
   return progressBar(`${label}: 完了 ${c.done}/${c.total}${share}${cancelled}`, c.done, c.total);
 }
 
-function period(p: ActiveSprintProgress): string {
+export function sprintPeriod(p: ActiveSprintProgress): string {
   const original = p.originalEndsOn && p.originalEndsOn !== p.endsOn ? ` (当初 ${p.originalEndsOn})` : '';
   const buffer = p.bufferEndsOn ? `${p.bufferEndsOn} (+${p.bufferDays ?? 0} 日)` : 'なし';
   return `開始 ${p.startsOn} / 終了 ${p.endsOn}${original} / バッファ ${buffer}`;
@@ -47,7 +47,7 @@ function period(p: ActiveSprintProgress): string {
 function activeBlock(p: ActiveSprintProgress): string {
   const margin = p.margin === null ? 'タスク 0 件のため「—」' : `消化 − 経過 = ${p.margin >= 0 ? '+' : ''}${Math.round(p.margin * 100)} pt`;
   return `<p><strong>${esc(p.name)}</strong> <span class="grade ${gradeClass(p.grade)}">${esc(p.grade)}</span> <span class="small muted">${esc(margin)}</span></p>
-${p.goal ? `<p class="small">ゴール: ${esc(p.goal)}</p>` : ''}<p class="small">${esc(period(p))}</p>
+${p.goal ? `<p class="small">ゴール: ${esc(p.goal)}</p>` : ''}<p class="small">${esc(sprintPeriod(p))}</p>
 <div class="bars">${doneBar('project', p.project)}${doneBar('スプリント全体', p.sprint)}${progressBar(`経過: ${percent(p.elapsed)} (残 ${p.remainingDays} 日)`, Math.round(p.elapsed * 100), 100)}</div>
 <ul class="plain small"><li>クリティカルパス ${p.criticalPath} 件</li><li>人間 ${p.byExecutor.human} 件 / AI ${p.byExecutor.ai} 件</li><li${p.overdue > 0 ? ' class="warn"' : ''}>期限超過 ${p.overdue} 件</li></ul>`;
 }

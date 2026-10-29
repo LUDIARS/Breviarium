@@ -22,6 +22,7 @@ LUDIARS の各プロジェクトが「どの状態 (スタートアップ / ス�
 | BR-UX-4 | 公開 (Internal) 前提: 秘匿語・個人データ・秘密を持たない。data/ は Git 管理外、要約は Markdown/JSON で書き出せる。Internal 公開は Cloudflare Access 検証済みの閲覧専用 (書き込みは loopback だけ) | platform-foundation, snapshots |
 | BR-UX-6 | Ingenium の AI プレイテストの run (感想・不具合候補・動画) をこの PC の一画面で精査し、人間の判定を Actio と次の周回へ返す。精査と判定は loopback だけで、閲覧者にはプロジェクト詳細の最新 5 件 (動画・感想・不具合候補) を読み取り専用で出す ([playtest-triage](../feature/playtest-triage.md)) | playtest-triage, platform-foundation |
 | BR-UX-5 | 各プロジェクトの現在スプリントの健全さ (消化 vs 経過) が一枚で分かる。スプリントの正本は Actio で、Breviarium は集計だけをキャッシュから出す (MUSA Terpsichore の席「チームを回す」) | inspections, snapshots, platform-foundation |
+| BR-UX-6 | 複数のプロジェクトにまたがるチームのスプリント (横断スプリント、例 GLab) と、その関連プロジェクトが一枚で分かる。スプリントの正本は Actio で、Breviarium はチームと関連の登録だけを持つ | cross-sprints, platform-foundation |
 
 ## 不変条件
 

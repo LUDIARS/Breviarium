@@ -22,7 +22,7 @@ export function redirect(location: string): HttpResponse {
   return { status: 303, headers: { location }, body: '' };
 }
 
-const CONFLICT = new Set(['duplicate_project', 'refresh_in_progress']);
+const CONFLICT = new Set(['duplicate_project', 'duplicate_cross_sprint', 'refresh_in_progress']);
 const BAD_REQUEST = new Set(['unknown_source', 'invalid_sources']);
 
 /** Maps a domain error code to an HTTP status. */

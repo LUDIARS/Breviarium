@@ -168,6 +168,14 @@
     { "source": "src/adapters/http/service-links.ts", "tests": ["tests/adapters/http-app.test.ts"], "contracts": [] },
     { "source": "src/adapters/http/html/service-link-views.ts", "tests": ["tests/adapters/http-app.test.ts"], "contracts": [] },
     { "source": "contracts/extract-service-catalog.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-48"] },
-    { "source": "contracts/remote-host.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-49"] }
+    { "source": "contracts/remote-host.contract.ts", "tests": ["tests/shared/contracts.test.ts"], "contracts": ["C-49"] },
+    { "source": "src/cross-sprints/domain/model.ts", "tests": ["tests/cross-sprints/cross-sprint-rules.test.ts"], "contracts": [] },
+    { "source": "src/cross-sprints/domain/cross-sprint-rules.ts", "tests": ["tests/cross-sprints/cross-sprint-rules.test.ts"], "contracts": [] },
+    { "source": "src/cross-sprints/domain/cross-sprint-board.ts", "tests": ["tests/cross-sprints/cross-sprint-board.test.ts"], "contracts": [] },
+    { "source": "src/cross-sprints/application/cross-sprint-use-cases.ts", "tests": ["tests/adapters/cross-sprint-http.test.ts"], "contracts": [] },
+    { "source": "src/adapters/storage/cross-sprint-file-store.ts", "tests": ["tests/adapters/cross-sprint-http.test.ts"], "contracts": [] },
+    { "source": "src/adapters/http/api/cross-sprint-api.ts", "tests": ["tests/adapters/cross-sprint-http.test.ts"], "contracts": [] },
+    { "source": "src/adapters/http/cross-sprint-page-routes.ts", "tests": ["tests/adapters/cross-sprint-http.test.ts"], "contracts": [] },
+    { "source": "src/adapters/http/html/cross-sprint-page.ts", "tests": ["tests/adapters/cross-sprint-http.test.ts"], "contracts": [] }
   ]
 }

@@ -68,6 +68,7 @@ button, .button-link { font:inherit; min-height:var(--tap); min-width:var(--tap)
 button.secondary, .button-link.secondary { background:var(--card); color:var(--accent); }
 button.danger { background:var(--bad); border-color:var(--bad); color:#fff; }
 .actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.menu { display:flex; flex-wrap:wrap; gap:0 14px; }
 .service-links { display:flex; flex-wrap:wrap; gap:0 14px; margin:4px 0; }
 .service-links a { display:inline-flex; align-items:center; min-height:var(--tap); min-width:0; }
 details > summary { min-height:var(--tap); display:flex; align-items:center; cursor:pointer; font-weight:600; }

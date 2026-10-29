@@ -1,5 +1,5 @@
 import type { AppDeps } from '../../src/adapters/http/app-deps.ts';
-import { MemoryProjectStore, MemorySnapshotStore } from '../../src/adapters/storage/memory-stores.ts';
+import { MemoryCrossSprintStore, MemoryProjectStore, MemorySnapshotStore } from '../../src/adapters/storage/memory-stores.ts';
 import type {
   ActioEvidence,
   ActioTeamFact,
@@ -373,10 +373,12 @@ export function testDeps(sources: SourceRegistry = okSources()) {
   const snapshots = new MemorySnapshotStore();
   const clock = fixedClock();
   const refresh = createRefresher({ projects, snapshots, sources, clock });
+  const crossSprints = new MemoryCrossSprintStore();
   const deps: AppDeps = {
     registry: { projects, cleanup: snapshots, clock },
     overview: { projects, snapshots, clock, policy: { snapshotMaxAgeMs: 24 * 3_600_000 } },
     refresh,
+    crossSprints: { crossSprints, projects, snapshots, clock },
   };
-  return { deps, projects, snapshots, clock, sources };
+  return { deps, projects, snapshots, clock, sources, crossSprints };
 }
